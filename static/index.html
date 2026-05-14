@@ -8,6 +8,7 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script>var QRCodeLib = window.QRCode;</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'IBM Plex Mono',monospace,Consolas;background:#0a0e1a;color:#f1f5f9;font-size:13px;}
@@ -71,14 +72,14 @@ function F({label, children}) {
 }
 
 // ── QR Code component ────────────────────────────────────────────────────────
-function QRCode({value, size=180}) {
+function QRImg({value, size=180}) {
   const canvas = useRef();
   useEffect(()=>{
-    if(canvas.current && value) {
-      QRCode.toCanvas(canvas.current, value, {width:size, margin:1, color:{dark:"#000000",light:"#ffffff"}}, ()=>{});
+    if(canvas.current && value && typeof QRCodeLib !== "undefined") {
+      QRCodeLib.toCanvas(canvas.current, value, {width:size, margin:2, color:{dark:"#000000",light:"#ffffff"}}, (err)=>{ if(err) console.error("QR error:",err); });
     }
   },[value,size]);
-  return <canvas ref={canvas} style={{borderRadius:8}}/>;
+  return <canvas ref={canvas} style={{borderRadius:8, display:"block", margin:"0 auto"}}/>;
 }
 
 // ── Login Page ───────────────────────────────────────────────────────────────
@@ -138,7 +139,7 @@ function RegisterPage({onBack, onDone}) {
           {step===2&&qrData&&<>
             <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Step 2 of 2 — Scan MFA QR Code</div>
             <div style={{background:C.surface2,borderRadius:8,padding:20,textAlign:"center",marginBottom:16}}>
-              <QRCode value={qrData.otp_uri} size={160}/>
+              <QRImg value={qrData.otp_uri} size={160}/>
               <div style={{marginTop:10,fontSize:11,color:C.muted}}>Scan with Microsoft Authenticator</div>
               <div style={{marginTop:6,fontSize:10,color:C.dim,wordBreak:"break-all",padding:"0 8px"}}>Secret: {qrData.totp_secret}</div>
             </div>
@@ -499,7 +500,7 @@ function UsersPage({currentUser}) {
             <div style={{display:"flex",gap:10}}><button style={S.btn("ghost")} onClick={done}>Cancel</button><button style={{...S.btn("primary"),flex:1,opacity:loading?0.7:1}} onClick={create} disabled={loading}>{loading?"Creating...":"Continue"}</button></div>
           </>:qrData&&<>
             <div style={{textAlign:"center",marginBottom:16}}>
-              <QRCode value={qrData.otp_uri} size={160}/>
+              <QRImg value={qrData.otp_uri} size={160}/>
               <div style={{marginTop:10,fontSize:11,color:C.muted}}>Scan with Microsoft Authenticator</div>
               <div style={{marginTop:6,fontSize:10,color:C.dim,wordBreak:"break-all"}}>Secret: {qrData.totp_secret}</div>
             </div>
@@ -524,7 +525,11 @@ function App() {
 
   function handleLogin(d){setSession(d); localStorage.setItem("pam_user",d.username);}
   async function handleLogout(){try{await api("POST","/auth/logout");}catch(e){} _token=""; localStorage.removeItem("pam_token"); localStorage.removeItem("pam_user"); setSession(null); setCart([]);}
-  function handleRegistered(){api("GET","/auth/status").then(d=>setHasUsers(d.has_users)); setShowRegister(false);}
+  function handleRegistered(username){
+    // After registration, go to login page so user logs in properly
+    api("GET","/auth/status").then(d=>setHasUsers(d.has_users));
+    setShowRegister(false);
+  }
 
   if(showRegister&&!session) return <RegisterPage onBack={()=>setShowRegister(false)} onDone={handleRegistered}/>;
   if(!session) return <LoginPage onLogin={handleLogin} hasUsers={hasUsers} onRegister={()=>setShowRegister(true)}/>;
