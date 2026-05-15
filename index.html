@@ -7,8 +7,6 @@
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script src="https://unpkg.com/qrcode@1.5.3/build/qrcode.min.js"></script>
-<script>var QRCodeLib = window.QRCode;</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'IBM Plex Mono',monospace,Consolas;background:#0a0e1a;color:#f1f5f9;font-size:13px;}
@@ -16,92 +14,77 @@ input,select,button{font-family:inherit;}
 ::-webkit-scrollbar{width:6px;}
 ::-webkit-scrollbar-track{background:#111827;}
 ::-webkit-scrollbar-thumb{background:#1e3a5f;border-radius:3px;}
-.spin{animation:spin 1s linear infinite;}
-@keyframes spin{to{transform:rotate(360deg);}}
 </style>
 </head>
 <body>
 <div id="root"></div>
-
 <script type="text/babel">
-const {useState, useEffect, useRef, useCallback} = React;
+const {useState,useEffect,useRef,useCallback}=React;
+const API="";
+const C={bg:"#0a0e1a",surface:"#111827",surface2:"#1a2235",border:"#1e3a5f",accent:"#0ea5e9",success:"#10b981",danger:"#ef4444",warning:"#f59e0b",text:"#f1f5f9",muted:"#94a3b8",dim:"#475569"};
+let _token=localStorage.getItem("pam_token")||"";
+let _role=localStorage.getItem("pam_role")||"";
 
-const API = "";  // Same origin — Flask serves both API and frontend
-const C = {
-  bg:"#0a0e1a", surface:"#111827", surface2:"#1a2235",
-  border:"#1e3a5f", accent:"#0ea5e9", success:"#10b981",
-  danger:"#ef4444", warning:"#f59e0b",
-  text:"#f1f5f9", muted:"#94a3b8", dim:"#475569",
-};
-
-// ── API helpers ──────────────────────────────────────────────────────────────
-let _token = localStorage.getItem("pam_token") || "";
-
-async function api(method, path, body) {
-  const res = await fetch(API + "/api" + path, {
-    method,
-    headers: {"Content-Type":"application/json", "X-Session-Token": _token},
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Request failed");
+async function api(method,path,body){
+  const res=await fetch(API+"/api"+path,{method,headers:{"Content-Type":"application/json","X-Session-Token":_token},body:body?JSON.stringify(body):undefined});
+  const data=await res.json();
+  if(!res.ok) throw new Error(data.error||"Request failed");
   return data;
 }
 
-// ── Shared styles ────────────────────────────────────────────────────────────
-const S = {
-  card: {background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, padding:"20px 24px", marginBottom:16},
-  input: {background:C.surface2, border:`1px solid ${C.border}`, borderRadius:6, padding:"8px 12px", color:C.text, fontSize:12, width:"100%", outline:"none"},
-  label: {fontSize:11, color:C.muted, marginBottom:4, display:"block", textTransform:"uppercase", letterSpacing:"0.08em"},
-  btn: (v="primary")=>({padding:"8px 16px", borderRadius:6, border:"none", cursor:"pointer", fontSize:12, fontWeight:500,
-    background: v==="primary"?C.accent:v==="danger"?C.danger:v==="success"?C.success:v==="ghost"?"transparent":C.surface2,
-    color: v==="ghost"?C.muted:"#fff",
-    border: v==="ghost"?`1px solid ${C.border}`:"none",
-  }),
-  modal: {position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000},
-  modalBox: {background:C.surface, border:`1px solid ${C.border}`, borderRadius:12, padding:32, width:500, maxHeight:"88vh", overflowY:"auto"},
-  th: {textAlign:"left", padding:"10px 14px", fontSize:11, color:C.muted, textTransform:"uppercase", letterSpacing:"0.08em", borderBottom:`1px solid ${C.border}`},
-  td: {padding:"11px 14px", borderBottom:`1px solid rgba(30,58,95,0.4)`, fontSize:12, verticalAlign:"middle"},
-  badge: (c)=>({display:"inline-block", padding:"2px 8px", borderRadius:4, fontSize:11,
-    background: c==="success"?"rgba(16,185,129,0.15)":c==="danger"?"rgba(239,68,68,0.15)":c==="warning"?"rgba(245,158,11,0.15)":"rgba(14,165,233,0.15)",
-    color: c==="success"?C.success:c==="danger"?C.danger:c==="warning"?C.warning:C.accent}),
+const S={
+  card:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"20px 24px",marginBottom:16},
+  input:{background:C.surface2,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 12px",color:C.text,fontSize:12,width:"100%",outline:"none"},
+  label:{fontSize:11,color:C.muted,marginBottom:4,display:"block",textTransform:"uppercase",letterSpacing:"0.08em"},
+  btn:(v="primary")=>({padding:"8px 16px",borderRadius:6,border:"none",cursor:"pointer",fontSize:12,fontWeight:500,
+    background:v==="primary"?C.accent:v==="danger"?C.danger:v==="success"?C.success:v==="warning"?C.warning:v==="ghost"?"transparent":C.surface2,
+    color:v==="ghost"?C.muted:"#fff",border:v==="ghost"?`1px solid ${C.border}`:"none"}),
+  modal:{position:"fixed",inset:0,background:"rgba(0,0,0,0.78)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000},
+  modalBox:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:32,width:500,maxHeight:"88vh",overflowY:"auto"},
+  th:{textAlign:"left",padding:"10px 14px",fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:"0.08em",borderBottom:`1px solid ${C.border}`},
+  td:{padding:"11px 14px",borderBottom:`1px solid rgba(30,58,95,0.4)`,fontSize:12,verticalAlign:"middle"},
+  badge:(c)=>({display:"inline-block",padding:"2px 8px",borderRadius:4,fontSize:11,
+    background:c==="success"?"rgba(16,185,129,0.15)":c==="danger"?"rgba(239,68,68,0.15)":c==="warning"?"rgba(245,158,11,0.15)":c==="purple"?"rgba(167,139,250,0.15)":"rgba(14,165,233,0.15)",
+    color:c==="success"?C.success:c==="danger"?C.danger:c==="warning"?C.warning:c==="purple"?"#a78bfa":C.accent}),
 };
 
-function F({label, children}) {
-  return <div style={{marginBottom:14}}><label style={S.label}>{label}</label>{children}</div>;
-}
+function F({label,children}){return <div style={{marginBottom:14}}><label style={S.label}>{label}</label>{children}</div>;}
 
-// ── QR Code component ────────────────────────────────────────────────────────
-function QRImg({value, size=180}) {
-  const canvas = useRef();
-  useEffect(()=>{
-    if(canvas.current && value && typeof QRCodeLib !== "undefined") {
-      QRCodeLib.toCanvas(canvas.current, value, {width:size, margin:2, color:{dark:"#000000",light:"#ffffff"}}, (err)=>{ if(err) console.error("QR error:",err); });
-    }
-  },[value,size]);
-  return <canvas ref={canvas} style={{borderRadius:8, display:"block", margin:"0 auto"}}/>;
-}
-
-// ── Login Page ───────────────────────────────────────────────────────────────
-function LoginPage({onLogin, hasUsers, onRegister}) {
-  const [u,setU]=useState(""); const [p,setP]=useState(""); const [err,setErr]=useState(""); const [loading,setLoading]=useState(false);
-  async function submit() {
-    setLoading(true); setErr("");
-    try { const d=await api("POST","/auth/login",{username:u,password:p}); _token=d.token; localStorage.setItem("pam_token",d.token); onLogin(d); }
-    catch(e){setErr(e.message);}
-    finally{setLoading(false);}
+// QR using img tag — loads from qrserver.com (free, no key)
+// Falls back to showing the secret for manual entry
+function QRImg({value,size=180}){
+  const [failed,setFailed]=useState(false);
+  const url=`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(value)}&bgcolor=ffffff&color=000000&margin=10`;
+  if(failed){
+    return(
+      <div style={{background:"#fff",borderRadius:8,padding:20,display:"inline-block",textAlign:"center",width:size}}>
+        <div style={{color:"#333",fontSize:11,marginBottom:6}}>QR unavailable</div>
+        <div style={{color:"#555",fontSize:10}}>Use the secret below to add manually in Authenticator</div>
+      </div>
+    );
   }
-  return (
+  return <img src={url} width={size} height={size} style={{borderRadius:8,display:"block",margin:"0 auto",background:"#fff"}} onError={()=>setFailed(true)} alt="Scan with Microsoft Authenticator"/>;
+}
+
+// LOGIN
+function LoginPage({onLogin,hasUsers,onRegister}){
+  const [u,setU]=useState("");const [p,setP]=useState("");const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
+  async function submit(){
+    setLoading(true);setErr("");
+    try{const d=await api("POST","/auth/login",{username:u,password:p});_token=d.token;_role=d.role;localStorage.setItem("pam_token",d.token);localStorage.setItem("pam_role",d.role);onLogin(d);}
+    catch(e){setErr(e.message);}finally{setLoading(false);}
+  }
+  return(
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
       <div style={{width:380}}>
         <div style={{textAlign:"center",marginBottom:32}}>
-          <div style={{fontSize:28,fontWeight:700,color:C.accent,letterSpacing:"-0.02em"}}>⬡ PAM Vault</div>
+          <div style={{fontSize:28,fontWeight:700,color:C.accent}}>⬡ PAM Vault</div>
           <div style={{fontSize:12,color:C.muted,marginTop:6}}>Privileged Access Management System</div>
         </div>
         <div style={S.card}>
           <F label="Username"><input style={S.input} value={u} onChange={e=>setU(e.target.value)} placeholder="admin" onKeyDown={e=>e.key==="Enter"&&submit()}/></F>
           <F label="Password"><input style={S.input} type="password" value={p} onChange={e=>setP(e.target.value)} placeholder="••••••••" onKeyDown={e=>e.key==="Enter"&&submit()}/></F>
-          {err && <div style={{color:C.danger,fontSize:12,marginBottom:12}}>⚠ {err}</div>}
+          {err&&<div style={{color:C.danger,fontSize:12,marginBottom:12}}>⚠ {err}</div>}
           <button style={{...S.btn("primary"),width:"100%",padding:10,opacity:loading?0.7:1}} onClick={submit} disabled={loading}>{loading?"Signing in...":"Sign In"}</button>
           {!hasUsers&&<div style={{marginTop:16,textAlign:"center"}}><span style={{fontSize:12,color:C.muted}}>No accounts yet. </span><span style={{fontSize:12,color:C.accent,cursor:"pointer"}} onClick={onRegister}>Create admin →</span></div>}
         </div>
@@ -111,40 +94,49 @@ function LoginPage({onLogin, hasUsers, onRegister}) {
   );
 }
 
-// ── Register Page ────────────────────────────────────────────────────────────
-function RegisterPage({onBack, onDone}) {
-  const [step,setStep]=useState(1); const [u,setU]=useState(""); const [p,setP]=useState(""); const [c,setC]=useState(""); const [err,setErr]=useState(""); const [qrData,setQrData]=useState(null); const [loading,setLoading]=useState(false);
-  async function submit() {
+// REGISTER
+function RegisterPage({onBack,onDone}){
+  const [step,setStep]=useState(1);
+  const [u,setU]=useState("");const [p,setP]=useState("");const [c,setC]=useState("");
+  const [err,setErr]=useState("");const [qrData,setQrData]=useState(null);const [loading,setLoading]=useState(false);
+  async function submit(){
     if(!u.trim()){setErr("Username required");return;}
-    if(p.length<8){setErr("Password must be 8+ chars");return;}
+    if(p.length<8){setErr("Password must be 8+ characters");return;}
     if(p!==c){setErr("Passwords do not match");return;}
-    setLoading(true); setErr("");
-    try { const d=await api("POST","/auth/register",{username:u,password:p}); setQrData(d); setStep(2); }
-    catch(e){setErr(e.message);}
-    finally{setLoading(false);}
+    setLoading(true);setErr("");
+    try{const d=await api("POST","/auth/register",{username:u,password:p});setQrData(d);setStep(2);}
+    catch(e){setErr(e.message);}finally{setLoading(false);}
   }
-  return (
+  return(
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <div style={{width:460}}>
+      <div style={{width:500}}>
         <div style={{textAlign:"center",marginBottom:28}}><div style={{fontSize:22,fontWeight:700,color:C.accent}}>⬡ PAM Vault</div><div style={{fontSize:12,color:C.muted,marginTop:4}}>Create Admin Account</div></div>
         <div style={S.card}>
           {step===1&&<>
-            <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Step 1 of 2 — Account details</div>
+            <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Step 1 of 2 — Account details</div>
             <F label="Username"><input style={S.input} value={u} onChange={e=>setU(e.target.value)} placeholder="admin"/></F>
             <F label="Password"><input style={S.input} type="password" value={p} onChange={e=>setP(e.target.value)}/></F>
             <F label="Confirm Password"><input style={S.input} type="password" value={c} onChange={e=>setC(e.target.value)}/></F>
             {err&&<div style={{color:C.danger,fontSize:12,marginBottom:12}}>⚠ {err}</div>}
-            <div style={{display:"flex",gap:10}}><button style={S.btn("ghost")} onClick={onBack}>Back</button><button style={{...S.btn("primary"),flex:1,opacity:loading?0.7:1}} onClick={submit} disabled={loading}>{loading?"Creating...":"Continue"}</button></div>
+            <div style={{display:"flex",gap:10}}>
+              <button style={S.btn("ghost")} onClick={onBack}>Back</button>
+              <button style={{...S.btn("primary"),flex:1,opacity:loading?0.7:1}} onClick={submit} disabled={loading}>{loading?"Creating...":"Continue"}</button>
+            </div>
           </>}
           {step===2&&qrData&&<>
-            <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Step 2 of 2 — Scan MFA QR Code</div>
-            <div style={{background:C.surface2,borderRadius:8,padding:20,textAlign:"center",marginBottom:16}}>
-              <QRImg value={qrData.otp_uri} size={160}/>
-              <div style={{marginTop:10,fontSize:11,color:C.muted}}>Scan with Microsoft Authenticator</div>
-              <div style={{marginTop:6,fontSize:10,color:C.dim,wordBreak:"break-all",padding:"0 8px"}}>Secret: {qrData.totp_secret}</div>
+            <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Step 2 of 2 — Set up Microsoft Authenticator</div>
+            <div style={{background:C.surface2,borderRadius:8,padding:24,textAlign:"center",marginBottom:16}}>
+              <QRImg value={qrData.otp_uri} size={190}/>
+              <div style={{marginTop:14,fontSize:12,color:C.muted}}>Open <strong style={{color:C.text}}>Microsoft Authenticator</strong> → Add account → Scan QR</div>
+              <div style={{marginTop:12,background:C.surface,borderRadius:6,padding:"10px 14px",display:"inline-block",textAlign:"left"}}>
+                <div style={{fontSize:10,color:C.dim,marginBottom:4,textTransform:"uppercase",letterSpacing:"0.08em"}}>Or enter secret manually:</div>
+                <div style={{fontSize:13,color:C.accent,letterSpacing:"0.15em",wordBreak:"break-all",fontWeight:600}}>{qrData.totp_secret}</div>
+              </div>
             </div>
-            <div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:6,padding:"10px 14px",fontSize:12,color:C.warning,marginBottom:16}}>⚠ Save this QR. It will NOT be shown again. Needed to retrieve vault credentials.</div>
-            <button style={{...S.btn("success"),width:"100%"}} onClick={onDone}>I've scanned — Complete Setup</button>
+            <div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:6,padding:"12px 16px",fontSize:12,color:C.warning,marginBottom:20}}>
+              ⚠ <strong>Save this QR code or secret now.</strong> It will NOT be shown again. You need it every time you retrieve a credential.
+            </div>
+            <button style={{...S.btn("success"),width:"100%",padding:11}} onClick={onDone}>✓ I've scanned the QR — Go to Login</button>
           </>}
         </div>
       </div>
@@ -152,32 +144,20 @@ function RegisterPage({onBack, onDone}) {
   );
 }
 
-// ── Account Modal ────────────────────────────────────────────────────────────
-const PRESETS = {
-  "Windows 10":     {os:"windows",port:5985,icon:"🪟"},
-  "Windows Server": {os:"windows",port:5985,icon:"🖥️"},
-  "Linux":          {os:"linux",  port:22,  icon:"🐧"},
-  "Ubuntu":         {os:"linux",  port:22,  icon:"🟠"},
-  "Custom":         {os:"linux",  port:22,  icon:"⚙️"},
-};
-
-function AccountModal({account, onSave, onClose}) {
-  const isEdit = !!account?.id;
+// ACCOUNT MODAL
+const PRESETS={"Windows 10":{os:"windows",port:5985,icon:"🪟"},"Windows Server":{os:"windows",port:5985,icon:"🖥️"},"Linux":{os:"linux",port:22,icon:"🐧"},"Ubuntu":{os:"linux",port:22,icon:"🟠"},"Custom":{os:"linux",port:22,icon:"⚙️"}};
+function AccountModal({account,onSave,onClose}){
+  const isEdit=!!account?.id;
   const [preset,setPreset]=useState(account?.preset||"Linux");
   const [form,setForm]=useState({name:account?.name||"",hostname:account?.hostname||"",username:account?.username||"",os:account?.os||"linux",port:account?.port||22,description:account?.description||"",password_length:account?.password_length||15,preset:account?.preset||"Linux",password:""});
-  const [loading,setLoading]=useState(false); const [err,setErr]=useState("");
-
-  function applyPreset(p){setPreset(p); const t=PRESETS[p]; setForm(f=>({...f,os:t.os,port:t.port,preset:p}));}
-
+  const [loading,setLoading]=useState(false);const [err,setErr]=useState("");
+  function applyPreset(p){setPreset(p);const t=PRESETS[p];setForm(f=>({...f,os:t.os,port:t.port,preset:p}));}
   async function handleSave(){
     if(!form.name||!form.hostname||!form.username){setErr("Name, hostname and username are required.");return;}
-    setLoading(true); setErr("");
-    try{ await onSave(form,isEdit); }
-    catch(e){setErr(e.message);}
-    finally{setLoading(false);}
+    setLoading(true);setErr("");
+    try{await onSave(form,isEdit);}catch(e){setErr(e.message);}finally{setLoading(false);}
   }
-
-  return (
+  return(
     <div style={S.modal} onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={S.modalBox}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
@@ -186,18 +166,14 @@ function AccountModal({account, onSave, onClose}) {
         </div>
         {!isEdit&&<F label="Preset Template"><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           {Object.entries(PRESETS).map(([k,v])=>(
-            <button key={k} onClick={()=>applyPreset(k)} style={{padding:"5px 11px",borderRadius:6,border:`1px solid ${preset===k?C.accent:C.border}`,background:preset===k?"rgba(14,165,233,0.12)":C.surface2,color:preset===k?C.accent:C.muted,cursor:"pointer",fontSize:12}}>
-              {v.icon} {k}
-            </button>
+            <button key={k} onClick={()=>applyPreset(k)} style={{padding:"5px 11px",borderRadius:6,border:`1px solid ${preset===k?C.accent:C.border}`,background:preset===k?"rgba(14,165,233,0.12)":C.surface2,color:preset===k?C.accent:C.muted,cursor:"pointer",fontSize:12}}>{v.icon} {k}</button>
           ))}
         </div></F>}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
           <F label="Account Name"><input style={S.input} value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Linux Web Server"/></F>
           <F label="Hostname / IP"><input style={S.input} value={form.hostname} onChange={e=>setForm(f=>({...f,hostname:e.target.value}))} placeholder="192.168.1.20"/></F>
           <F label="Username"><input style={S.input} value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))} placeholder="root"/></F>
-          <F label="OS"><select style={S.input} value={form.os} onChange={e=>setForm(f=>({...f,os:e.target.value}))}>
-            <option value="linux">Linux</option><option value="windows">Windows</option>
-          </select></F>
+          <F label="OS"><select style={S.input} value={form.os} onChange={e=>setForm(f=>({...f,os:e.target.value}))}><option value="linux">Linux</option><option value="windows">Windows</option></select></F>
           <F label="Port"><input style={S.input} type="number" value={form.port} onChange={e=>setForm(f=>({...f,port:Number(e.target.value)}))}/></F>
           <F label="Password Length"><select style={S.input} value={form.password_length} onChange={e=>setForm(f=>({...f,password_length:Number(e.target.value)}))}>
             <option value={8}>8 characters</option><option value={15}>15 characters</option><option value={20}>20 characters</option>
@@ -215,17 +191,16 @@ function AccountModal({account, onSave, onClose}) {
   );
 }
 
-// ── Retrieve Modal (TOTP-gated) ──────────────────────────────────────────────
-function RetrieveModal({account, onClose}) {
-  const [code,setCode]=useState(""); const [revealed,setRevealed]=useState(null); const [err,setErr]=useState(""); const [loading,setLoading]=useState(false);
+// RETRIEVE MODAL — TOTP gated
+function RetrieveModal({account,onClose}){
+  const [code,setCode]=useState("");const [revealed,setRevealed]=useState(null);const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
   async function verify(){
     if(code.length!==6)return;
-    setLoading(true); setErr("");
-    try{ const d=await api("POST",`/accounts/${account.id}/retrieve`,{totp_code:code}); setRevealed(d); }
-    catch(e){setErr(e.message);}
-    finally{setLoading(false);}
+    setLoading(true);setErr("");
+    try{const d=await api("POST",`/accounts/${account.id}/retrieve`,{totp_code:code});setRevealed(d);}
+    catch(e){setErr(e.message);}finally{setLoading(false);}
   }
-  return (
+  return(
     <div style={S.modal} onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={{...S.modalBox,width:420}}>
         <div style={{textAlign:"center",marginBottom:20}}>
@@ -235,24 +210,24 @@ function RetrieveModal({account, onClose}) {
         </div>
         {!revealed?<>
           <div style={{background:C.surface2,borderRadius:8,padding:"12px 16px",marginBottom:16,fontSize:12,color:C.muted,lineHeight:1.7}}>
-            Enter the 6-digit code from your <strong style={{color:C.text}}>Microsoft Authenticator</strong> app to reveal this credential.
+            Enter the 6-digit code from your <strong style={{color:C.text}}>Microsoft Authenticator</strong> app.
           </div>
           <F label="Authenticator Code">
-            <input style={{...S.input,fontSize:22,letterSpacing:"0.35em",textAlign:"center"}} value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="000000" maxLength={6} onKeyDown={e=>e.key==="Enter"&&verify()}/>
+            <input style={{...S.input,fontSize:22,letterSpacing:"0.35em",textAlign:"center"}} value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="000000" maxLength={6} onKeyDown={e=>e.key==="Enter"&&verify()} autoFocus/>
           </F>
           {err&&<div style={{color:C.danger,fontSize:12,marginBottom:12}}>⚠ {err}</div>}
           <div style={{display:"flex",gap:10}}>
             <button style={S.btn("ghost")} onClick={onClose}>Cancel</button>
-            <button style={{...S.btn("primary"),flex:1,opacity:(loading||code.length!==6)?0.6:1}} onClick={verify} disabled={loading||code.length!==6}>{loading?"Verifying...":"Verify & Reveal"}</button>
+            <button style={{...S.btn("primary"),flex:1,opacity:(loading||code.length!==6)?0.5:1}} onClick={verify} disabled={loading||code.length!==6}>{loading?"Verifying...":"Verify & Reveal"}</button>
           </div>
         </>:<>
           <div style={{background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.2)",borderRadius:8,padding:"16px 20px",marginBottom:16}}>
-            <div style={{fontSize:11,color:C.muted,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.08em"}}>Username</div>
+            <div style={{fontSize:11,color:C.muted,marginBottom:4,textTransform:"uppercase",letterSpacing:"0.08em"}}>Username</div>
             <div style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:14}}>{revealed.username}</div>
-            <div style={{fontSize:11,color:C.muted,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.08em"}}>Current Password</div>
-            <div style={{fontSize:17,fontWeight:700,color:C.success,letterSpacing:"0.05em",wordBreak:"break-all"}}>{revealed.password}</div>
+            <div style={{fontSize:11,color:C.muted,marginBottom:4,textTransform:"uppercase",letterSpacing:"0.08em"}}>Current Password</div>
+            <div style={{fontSize:18,fontWeight:700,color:C.success,letterSpacing:"0.05em",wordBreak:"break-all"}}>{revealed.password}</div>
           </div>
-          <div style={{fontSize:11,color:C.dim,marginBottom:16,textAlign:"center"}}>⚠ Do not share this credential. This retrieval is logged.</div>
+          <div style={{fontSize:11,color:C.dim,marginBottom:16,textAlign:"center"}}>⚠ This retrieval has been logged in the audit trail.</div>
           <button style={{...S.btn("ghost"),width:"100%"}} onClick={onClose}>Close</button>
         </>}
       </div>
@@ -260,45 +235,38 @@ function RetrieveModal({account, onClose}) {
   );
 }
 
-// ── Accounts Page ────────────────────────────────────────────────────────────
-function AccountsPage({cart,setCart,addLog}) {
-  const [accounts,setAccounts]=useState([]); const [showAdd,setShowAdd]=useState(false); const [editAcc,setEditAcc]=useState(null); const [retrieveAcc,setRetrieveAcc]=useState(null); const [deleteAcc,setDeleteAcc]=useState(null); const [search,setSearch]=useState(""); const [loading,setLoading]=useState(true); const [rotating,setRotating]=useState({});
-
-  async function load(){setLoading(true); try{const d=await api("GET","/accounts"); setAccounts(d);}catch(e){} finally{setLoading(false);}}
+// ACCOUNTS PAGE
+function AccountsPage({cart,setCart,isReadOnly}){
+  const [accounts,setAccounts]=useState([]);const [showAdd,setShowAdd]=useState(false);const [editAcc,setEditAcc]=useState(null);const [retrieveAcc,setRetrieveAcc]=useState(null);const [deleteAcc,setDeleteAcc]=useState(null);const [search,setSearch]=useState("");const [loading,setLoading]=useState(true);const [rotating,setRotating]=useState({});
+  async function load(){setLoading(true);try{const d=await api("GET","/accounts");setAccounts(d);}catch(e){}finally{setLoading(false);}}
   useEffect(()=>{load();},[]);
-
   async function saveAccount(form,isEdit){
-    if(isEdit){ await api("PUT",`/accounts/${editAcc.id}`,form); }
-    else { await api("POST","/accounts",form); }
-    setShowAdd(false); setEditAcc(null); load();
+    if(isEdit){await api("PUT",`/accounts/${editAcc.id}`,form);}else{await api("POST","/accounts",form);}
+    setShowAdd(false);setEditAcc(null);load();
   }
-
-  async function deleteAccount(acc){
-    await api("DELETE",`/accounts/${acc.id}`);
-    setCart(p=>p.filter(id=>id!==acc.id));
-    setDeleteAcc(null); load();
-  }
-
+  async function deleteAccount(acc){await api("DELETE",`/accounts/${acc.id}`);setCart(p=>p.filter(id=>id!==acc.id));setDeleteAcc(null);load();}
   async function rotateOne(acc){
     setRotating(r=>({...r,[acc.id]:true}));
-    try{ await api("POST",`/accounts/${acc.id}/rotate`); load(); }
-    catch(e){ alert("Rotation failed: "+e.message); }
-    finally{ setRotating(r=>({...r,[acc.id]:false})); }
+    try{await api("POST",`/accounts/${acc.id}/rotate`);load();}
+    catch(e){alert("Rotation failed: "+e.message);}
+    finally{setRotating(r=>({...r,[acc.id]:false}));}
   }
-
-  const filtered = accounts.filter(a=>a.name.toLowerCase().includes(search.toLowerCase())||a.hostname.includes(search)||a.username.toLowerCase().includes(search.toLowerCase()));
-  const toggleCart = id => setCart(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
-  const osIcon = os=>os==="windows"?"🪟":"🐧";
-
-  return (
+  const filtered=accounts.filter(a=>a.name.toLowerCase().includes(search.toLowerCase())||a.hostname.includes(search)||a.username.toLowerCase().includes(search.toLowerCase()));
+  const toggleCart=id=>setCart(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+  const osIcon=os=>os==="windows"?"🪟":"🐧";
+  return(
     <div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
         <div><div style={{fontSize:20,fontWeight:600}}>Account Vault</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>{accounts.length} accounts · {cart.length} in session cart</div></div>
         <div style={{display:"flex",gap:10}}>
           <input style={{...S.input,width:200}} placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)}/>
-          <button style={S.btn("primary")} onClick={()=>setShowAdd(true)}>+ Add Account</button>
+          {!isReadOnly&&<button style={S.btn("primary")} onClick={()=>setShowAdd(true)}>+ Add Account</button>}
         </div>
       </div>
+
+      {isReadOnly&&<div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:8,padding:"10px 16px",marginBottom:16,fontSize:12,color:C.warning}}>
+        👁 Read-only access — you can view accounts and retrieve credentials (with MFA) but cannot add, edit, delete or rotate.
+      </div>}
 
       {cart.length>0&&<div style={{background:"rgba(14,165,233,0.06)",border:"1px solid rgba(14,165,233,0.2)",borderRadius:8,padding:"10px 16px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <span style={{fontSize:12,color:C.accent}}>🛒 {cart.length} account{cart.length>1?"s":""} in session cart (cleared on logout)</span>
@@ -318,7 +286,7 @@ function AccountsPage({cart,setCart,addLog}) {
             <th style={S.th}>Actions</th>
           </tr></thead>
           <tbody>
-            {filtered.length===0&&<tr><td colSpan={7} style={{...S.td,textAlign:"center",color:C.dim,padding:40}}>No accounts. Click "+ Add Account" to get started.</td></tr>}
+            {filtered.length===0&&<tr><td colSpan={7} style={{...S.td,textAlign:"center",color:C.dim,padding:40}}>{accounts.length===0?"No accounts. Click '+ Add Account' to get started.":"No results."}</td></tr>}
             {filtered.map(acc=>(
               <tr key={acc.id} style={{background:cart.includes(acc.id)?"rgba(14,165,233,0.04)":"transparent"}}>
                 <td style={{...S.td,width:40}}><input type="checkbox" checked={cart.includes(acc.id)} onChange={()=>toggleCart(acc.id)} style={{cursor:"pointer",accentColor:C.accent}}/></td>
@@ -330,9 +298,11 @@ function AccountsPage({cart,setCart,addLog}) {
                 <td style={S.td}>
                   <div style={{display:"flex",gap:5}}>
                     <button title="Retrieve credential" style={{...S.btn("ghost"),padding:"4px 8px",fontSize:11}} onClick={()=>setRetrieveAcc(acc)}>🔑</button>
-                    <button title="Rotate now" style={{...S.btn("ghost"),padding:"4px 8px",fontSize:11,opacity:rotating[acc.id]?0.5:1}} onClick={()=>rotateOne(acc)} disabled={!!rotating[acc.id]}>{rotating[acc.id]?"⟳":"🔄"}</button>
-                    <button title="Edit" style={{...S.btn("ghost"),padding:"4px 8px",fontSize:11}} onClick={()=>setEditAcc(acc)}>✏️</button>
-                    <button title="Delete" style={{...S.btn("ghost"),padding:"4px 8px",fontSize:11,color:C.danger}} onClick={()=>setDeleteAcc(acc)}>🗑</button>
+                    {!isReadOnly&&<>
+                      <button title="Rotate now" style={{...S.btn("ghost"),padding:"4px 8px",fontSize:11,opacity:rotating[acc.id]?0.5:1}} onClick={()=>rotateOne(acc)} disabled={!!rotating[acc.id]}>{rotating[acc.id]?"⟳":"🔄"}</button>
+                      <button title="Edit" style={{...S.btn("ghost"),padding:"4px 8px",fontSize:11}} onClick={()=>setEditAcc(acc)}>✏️</button>
+                      <button title="Delete" style={{...S.btn("ghost"),padding:"4px 8px",fontSize:11,color:C.danger}} onClick={()=>setDeleteAcc(acc)}>🗑</button>
+                    </>}
                   </div>
                 </td>
               </tr>
@@ -340,7 +310,6 @@ function AccountsPage({cart,setCart,addLog}) {
           </tbody>
         </table>}
       </div>
-
       {(showAdd||editAcc)&&<AccountModal account={editAcc} onSave={saveAccount} onClose={()=>{setShowAdd(false);setEditAcc(null);}}/>}
       {retrieveAcc&&<RetrieveModal account={retrieveAcc} onClose={()=>setRetrieveAcc(null)}/>}
       {deleteAcc&&<div style={S.modal} onClick={e=>e.target===e.currentTarget&&setDeleteAcc(null)}>
@@ -354,14 +323,14 @@ function AccountsPage({cart,setCart,addLog}) {
   );
 }
 
-// ── Logs Page ────────────────────────────────────────────────────────────────
-function LogsPage() {
-  const [logs,setLogs]=useState([]); const [filter,setFilter]=useState("all"); const [loading,setLoading]=useState(true);
-  async function load(){setLoading(true); try{const d=await api("GET",`/logs${filter!=="all"?"?type="+filter:""}`); setLogs(d);}catch(e){} finally{setLoading(false);}}
+// LOGS PAGE
+function LogsPage(){
+  const [logs,setLogs]=useState([]);const [filter,setFilter]=useState("all");const [loading,setLoading]=useState(true);
+  async function load(){setLoading(true);try{const d=await api("GET",`/logs${filter!=="all"?"?type="+filter:""}`);setLogs(d);}catch(e){}finally{setLoading(false);}}
   useEffect(()=>{load();},[filter]);
   const typeColor={success:C.success,error:C.danger,warning:C.warning,info:C.accent};
-  const counts={verify:logs.filter(l=>l.code?.includes("VERIFY")).length, rotate:logs.filter(l=>l.code?.includes("ROT")).length, postverify:logs.filter(l=>l.code?.includes("POSTVERIFY")).length, error:logs.filter(l=>l.type==="error").length};
-  return (
+  const counts={verify:logs.filter(l=>l.code?.includes("VERIFY")).length,rotate:logs.filter(l=>l.code?.includes("ROT_")).length,postverify:logs.filter(l=>l.code?.includes("POSTVERIFY")).length,error:logs.filter(l=>l.type==="error").length};
+  return(
     <div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
         <div><div style={{fontSize:20,fontWeight:600}}>Audit Logs</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>{logs.length} entries</div></div>
@@ -369,7 +338,6 @@ function LogsPage() {
           {["all","success","error","warning","info"].map(f=>(
             <button key={f} onClick={()=>setFilter(f)} style={{...S.btn("ghost"),padding:"5px 12px",color:filter===f?C.accent:C.muted,borderColor:filter===f?C.accent:C.border}}>{f}</button>
           ))}
-          <button style={{...S.btn("ghost"),padding:"5px 12px",color:C.danger}} onClick={async()=>{await api("DELETE","/logs/clear");load();}}>Clear</button>
         </div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:24}}>
@@ -383,9 +351,7 @@ function LogsPage() {
       <div style={{...S.card,padding:0,overflow:"hidden"}}>
         {loading?<div style={{padding:40,textAlign:"center",color:C.dim}}>Loading logs...</div>:
         <table style={{width:"100%",borderCollapse:"collapse"}}>
-          <thead><tr>
-            <th style={S.th}>Timestamp</th><th style={S.th}>Type</th><th style={S.th}>Account</th><th style={S.th}>Event</th><th style={S.th}>Code</th>
-          </tr></thead>
+          <thead><tr><th style={S.th}>Timestamp</th><th style={S.th}>Type</th><th style={S.th}>Account</th><th style={S.th}>Event</th><th style={S.th}>Code</th></tr></thead>
           <tbody>
             {logs.length===0&&<tr><td colSpan={5} style={{...S.td,textAlign:"center",color:C.dim,padding:40}}>No log entries.</td></tr>}
             {logs.map((l,i)=>(
@@ -404,48 +370,42 @@ function LogsPage() {
   );
 }
 
-// ── Scheduler Page ───────────────────────────────────────────────────────────
-function SchedulerPage() {
-  const [status,setStatus]=useState({running:false,interval_hours:24,last_run:null}); const [interval,setIntervalH]=useState(24); const [loading,setLoading]=useState(false); const [rotateAll,setRotateAll]=useState(false); const [results,setResults]=useState(null);
-  async function loadStatus(){try{const d=await api("GET","/scheduler/status"); setStatus(d); setIntervalH(d.interval_hours);}catch(e){}}
+// SCHEDULER PAGE
+function SchedulerPage({isReadOnly}){
+  const [status,setStatus]=useState({running:false,interval_hours:24,last_run:null});
+  const [intervalH,setIntervalH]=useState(24);const [loading,setLoading]=useState(false);const [rotateAll,setRotateAll]=useState(false);const [results,setResults]=useState(null);
+  async function loadStatus(){try{const d=await api("GET","/scheduler/status");setStatus(d);setIntervalH(d.interval_hours);}catch(e){}}
   useEffect(()=>{loadStatus();},[]);
-  async function start(){setLoading(true); try{const d=await api("POST","/scheduler/start",{interval_hours:interval}); setStatus(d);}catch(e){} finally{setLoading(false);}}
-  async function stop(){setLoading(true); try{const d=await api("POST","/scheduler/stop"); setStatus(d);}catch(e){} finally{setLoading(false);}}
-  async function runNow(){setRotateAll(true); setResults(null); try{const d=await api("POST","/rotate/all"); setResults(d);}catch(e){} finally{setRotateAll(false); loadStatus();}}
-  return (
+  async function start(){setLoading(true);try{const d=await api("POST","/scheduler/start",{interval_hours:intervalH});setStatus(d);}catch(e){}finally{setLoading(false);}}
+  async function stop(){setLoading(true);try{const d=await api("POST","/scheduler/stop");setStatus(d);}catch(e){}finally{setLoading(false);}}
+  async function runNow(){setRotateAll(true);setResults(null);try{const d=await api("POST","/rotate/all");setResults(d);}catch(e){}finally{setRotateAll(false);loadStatus();}}
+  return(
     <div>
       <div style={{fontSize:20,fontWeight:600,marginBottom:6}}>Rotation Scheduler</div>
-      <div style={{fontSize:12,color:C.muted,marginBottom:24}}>Automated password rotation with daily verification, password change, and post-rotation validation</div>
+      <div style={{fontSize:12,color:C.muted,marginBottom:24}}>Automated password rotation: daily verify → password change → post-rotation validation</div>
+      {isReadOnly&&<div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:8,padding:"10px 16px",marginBottom:16,fontSize:12,color:C.warning}}>👁 Read-only access — scheduler controls are disabled.</div>}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:24}}>
         <div style={S.card}>
           <div style={{fontSize:13,fontWeight:600,marginBottom:16}}>Schedule Configuration</div>
-          <F label="Rotation Interval (hours)">
-            <select style={S.input} value={interval} onChange={e=>setIntervalH(Number(e.target.value))}>
+          <F label="Rotation Interval">
+            <select style={S.input} value={intervalH} onChange={e=>setIntervalH(Number(e.target.value))} disabled={isReadOnly}>
               <option value={1}>Every 1 hour</option><option value={12}>Every 12 hours</option><option value={24}>Every 24 hours (daily)</option><option value={168}>Every week</option>
             </select>
           </F>
-          <div style={{display:"flex",gap:10,marginTop:8}}>
-            <button style={{...S.btn(status.running?"danger":"success"),flex:1,opacity:loading?0.7:1}} onClick={status.running?stop:start} disabled={loading}>
-              {status.running?"⏹ Stop Scheduler":"▶ Start Scheduler"}
-            </button>
-          </div>
-          <div style={{marginTop:12,fontSize:11,color:C.dim}}>
-            Status: <span style={{color:status.running?C.success:C.muted}}>{status.running?"● Running":"○ Stopped"}</span>
-            {status.last_run&&<span style={{marginLeft:12}}>Last run: {new Date(status.last_run).toLocaleString()}</span>}
-          </div>
+          {!isReadOnly&&<div style={{display:"flex",gap:10,marginTop:8}}>
+            <button style={{...S.btn(status.running?"danger":"success"),flex:1,opacity:loading?0.7:1}} onClick={status.running?stop:start} disabled={loading}>{status.running?"⏹ Stop Scheduler":"▶ Start Scheduler"}</button>
+          </div>}
+          <div style={{marginTop:12,fontSize:11,color:C.dim}}>Status: <span style={{color:status.running?C.success:C.muted}}>{status.running?"● Running":"○ Stopped"}</span>{status.last_run&&<span style={{marginLeft:12}}>Last run: {new Date(status.last_run).toLocaleString()}</span>}</div>
         </div>
         <div style={S.card}>
           <div style={{fontSize:13,fontWeight:600,marginBottom:16}}>Manual Rotation</div>
-          <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Trigger a full rotation cycle immediately. Runs: daily verify → password change → post-rotation validation for all accounts.</div>
-          <button style={{...S.btn(rotateAll?"ghost":"primary"),width:"100%",padding:10,opacity:rotateAll?0.7:1}} onClick={runNow} disabled={rotateAll}>{rotateAll?"⟳ Rotating all accounts...":"▶ Run Full Rotation Now"}</button>
+          <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Trigger a full rotation cycle immediately for all accounts.</div>
+          {!isReadOnly&&<button style={{...S.btn(rotateAll?"ghost":"primary"),width:"100%",padding:10,opacity:rotateAll?0.7:1}} onClick={runNow} disabled={rotateAll}>{rotateAll?"⟳ Rotating...":"▶ Run Full Rotation Now"}</button>}
         </div>
       </div>
       {results&&<div style={S.card}>
-        <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Rotation Results</div>
-        <div style={{display:"flex",gap:20,marginBottom:14}}>
-          <span style={{color:C.success}}>✓ Success: {results.success}</span>
-          <span style={{color:C.danger}}>✗ Failed: {results.failed}</span>
-        </div>
+        <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Results</div>
+        <div style={{display:"flex",gap:20,marginBottom:14}}><span style={{color:C.success}}>✓ Success: {results.success}</span><span style={{color:C.danger}}>✗ Failed: {results.failed}</span></div>
         {results.details?.map((d,i)=>(
           <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"7px 12px",background:C.surface2,borderRadius:6,marginBottom:6}}>
             <span style={{color:d.success?C.success:C.danger}}>{d.success?"✓":"✗"}</span>
@@ -458,85 +418,164 @@ function SchedulerPage() {
   );
 }
 
-// ── Users Page ───────────────────────────────────────────────────────────────
-function UsersPage({currentUser}) {
-  const [users,setUsers]=useState([]); const [showAdd,setShowAdd]=useState(false); const [step,setStep]=useState(1); const [form,setForm]=useState({username:"",password:""}); const [qrData,setQrData]=useState(null); const [err,setErr]=useState(""); const [loading,setLoading]=useState(false);
-  async function load(){try{const d=await api("GET","/auth/users"); setUsers(d);}catch(e){}}
+// USERS PAGE
+function UsersPage({currentUser,currentRole}){
+  const [users,setUsers]=useState([]);const [showAdd,setShowAdd]=useState(false);const [step,setStep]=useState(1);const [form,setForm]=useState({username:"",password:"",role:"readonly"});const [qrData,setQrData]=useState(null);const [err,setErr]=useState("");const [loading,setLoading]=useState(false);const [deleteUser,setDeleteUser]=useState(null);
+  async function load(){try{const d=await api("GET","/auth/users");setUsers(d);}catch(e){}}
   useEffect(()=>{load();},[]);
   async function create(){
     if(!form.username||form.password.length<8){setErr("Username required, password 8+ chars.");return;}
-    setLoading(true); setErr("");
-    try{ const d=await api("POST","/auth/create_user",form); setQrData(d); setStep(2); }
-    catch(e){setErr(e.message);}
-    finally{setLoading(false);}
+    setLoading(true);setErr("");
+    try{const d=await api("POST","/auth/create_user",{username:form.username,password:form.password,role:form.role});setQrData(d);setStep(2);}
+    catch(e){setErr(e.message);}finally{setLoading(false);}
   }
-  function done(){setShowAdd(false); setStep(1); setForm({username:"",password:""}); setQrData(null); load();}
-  return (
+  async function handleDelete(u){
+    try{await api("DELETE",`/auth/users/${u.username}`);setDeleteUser(null);load();}
+    catch(e){alert(e.message);}
+  }
+  function done(){setShowAdd(false);setStep(1);setForm({username:"",password:"",role:"readonly"});setQrData(null);load();}
+  const roleColor=r=>r==="admin"?"success":"purple";
+  const roleLabel=r=>r==="admin"?"Admin":"Read Only";
+  return(
     <div>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
-        <div><div style={{fontSize:20,fontWeight:600}}>Vault Users</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>{users.length} admin account{users.length!==1?"s":""}</div></div>
-        <button style={S.btn("primary")} onClick={()=>{setShowAdd(true);setStep(1);setQrData(null);setErr("");}}>+ Create User</button>
+        <div><div style={{fontSize:20,fontWeight:600}}>Vault Users</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>{users.length} account{users.length!==1?"s":""}</div></div>
+        {currentRole==="admin"&&<button style={S.btn("primary")} onClick={()=>{setShowAdd(true);setStep(1);setQrData(null);setErr("");}}>+ Create User</button>}
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14}}>
-        {users.map((u,i)=>(
-          <div key={i} style={{...S.card,display:"flex",alignItems:"center",gap:14}}>
-            <div style={{width:42,height:42,borderRadius:"50%",background:"rgba(14,165,233,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700,color:C.accent,flexShrink:0}}>{u.username[0].toUpperCase()}</div>
-            <div>
-              <div style={{fontWeight:600,fontSize:13}}>{u.username}</div>
-              <div style={{fontSize:11,color:C.muted}}>{u.role} · MFA enabled</div>
-              <div style={{fontSize:10,color:C.dim}}>Created {new Date(u.created_at).toLocaleDateString()}</div>
-            </div>
-            {u.username===currentUser&&<span style={{...S.badge("success"),marginLeft:"auto",flexShrink:0}}>you</span>}
-          </div>
-        ))}
+
+      {/* Role explanation */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20}}>
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"14px 18px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><span style={S.badge("success")}>Admin</span></div>
+          <div style={{fontSize:12,color:C.muted,lineHeight:1.6}}>Full access — can add, edit, delete, and rotate vault accounts. Can manage users. Can retrieve credentials with MFA.</div>
+        </div>
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"14px 18px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><span style={S.badge("purple")}>Read Only</span></div>
+          <div style={{fontSize:12,color:C.muted,lineHeight:1.6}}>Restricted access — can view accounts and retrieve credentials (MFA required) but cannot add, edit, delete or rotate accounts.</div>
+        </div>
       </div>
+
+      <div style={{...S.card,padding:0,overflow:"hidden"}}>
+        <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <thead><tr>
+            <th style={S.th}>User</th>
+            <th style={S.th}>Role</th>
+            <th style={S.th}>MFA</th>
+            <th style={S.th}>Created</th>
+            {currentRole==="admin"&&<th style={S.th}>Actions</th>}
+          </tr></thead>
+          <tbody>
+            {users.map((u,i)=>(
+              <tr key={i}>
+                <td style={S.td}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <div style={{width:34,height:34,borderRadius:"50%",background:"rgba(14,165,233,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:C.accent,flexShrink:0}}>{u.username[0].toUpperCase()}</div>
+                    <div>
+                      <div style={{fontWeight:500}}>{u.username}</div>
+                      {u.username===currentUser&&<span style={{...S.badge("success"),fontSize:10}}>you</span>}
+                    </div>
+                  </div>
+                </td>
+                <td style={S.td}><span style={S.badge(roleColor(u.role))}>{roleLabel(u.role)}</span></td>
+                <td style={S.td}><span style={{fontSize:11,color:C.success}}>✓ Enabled</span></td>
+                <td style={{...S.td,fontSize:11,color:C.dim}}>{new Date(u.created_at).toLocaleDateString()}</td>
+                {currentRole==="admin"&&<td style={S.td}>
+                  {u.username!==currentUser
+                    ?<button style={{...S.btn("ghost"),padding:"4px 10px",fontSize:11,color:C.danger}} onClick={()=>setDeleteUser(u)}>🗑 Delete</button>
+                    :<span style={{fontSize:11,color:C.dim}}>—</span>}
+                </td>}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       {showAdd&&<div style={S.modal} onClick={e=>e.target===e.currentTarget&&done()}>
-        <div style={{...S.modalBox,width:420}}>
+        <div style={{...S.modalBox,width:460}}>
           <div style={{fontSize:15,fontWeight:600,marginBottom:20}}>Create Vault User</div>
           {step===1?<>
             <F label="Username"><input style={S.input} value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))}/></F>
             <F label="Password"><input style={S.input} type="password" value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))}/></F>
-            {err&&<div style={{color:C.danger,fontSize:12,marginBottom:12}}>⚠ {err}</div>}
-            <div style={{display:"flex",gap:10}}><button style={S.btn("ghost")} onClick={done}>Cancel</button><button style={{...S.btn("primary"),flex:1,opacity:loading?0.7:1}} onClick={create} disabled={loading}>{loading?"Creating...":"Continue"}</button></div>
-          </>:qrData&&<>
-            <div style={{textAlign:"center",marginBottom:16}}>
-              <QRImg value={qrData.otp_uri} size={160}/>
-              <div style={{marginTop:10,fontSize:11,color:C.muted}}>Scan with Microsoft Authenticator</div>
-              <div style={{marginTop:6,fontSize:10,color:C.dim,wordBreak:"break-all"}}>Secret: {qrData.totp_secret}</div>
+            <F label="Role">
+              <select style={S.input} value={form.role} onChange={e=>setForm(f=>({...f,role:e.target.value}))}>
+                <option value="admin">Admin — full access</option>
+                <option value="readonly">Read Only — view and retrieve only</option>
+              </select>
+            </F>
+            <div style={{background:C.surface2,borderRadius:6,padding:"10px 14px",fontSize:12,color:C.muted,marginBottom:14}}>
+              {form.role==="admin"
+                ?"Admin can manage all accounts, rotate passwords, and manage users."
+                :"Read-only users can view accounts and retrieve credentials (MFA required) but cannot make any changes."}
             </div>
-            <div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:6,padding:"10px 14px",fontSize:12,color:C.warning,marginBottom:14}}>⚠ User must scan this QR before closing. It won't be shown again.</div>
-            <button style={{...S.btn("success"),width:"100%"}} onClick={done}>Confirm & Create User</button>
+            {err&&<div style={{color:C.danger,fontSize:12,marginBottom:12}}>⚠ {err}</div>}
+            <div style={{display:"flex",gap:10}}>
+              <button style={S.btn("ghost")} onClick={done}>Cancel</button>
+              <button style={{...S.btn("primary"),flex:1,opacity:loading?0.7:1}} onClick={create} disabled={loading}>{loading?"Creating...":"Continue"}</button>
+            </div>
+          </>:qrData&&<>
+            <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Scan QR with Microsoft Authenticator</div>
+            <div style={{background:C.surface2,borderRadius:8,padding:20,textAlign:"center",marginBottom:16}}>
+              <QRImg value={qrData.otp_uri} size={190}/>
+              <div style={{marginTop:12,fontSize:11,color:C.muted}}>Open Authenticator → Add account → Scan QR</div>
+              <div style={{marginTop:10,background:C.surface,borderRadius:6,padding:"8px 12px",display:"inline-block"}}>
+                <div style={{fontSize:10,color:C.dim,marginBottom:3,textTransform:"uppercase"}}>Manual secret:</div>
+                <div style={{fontSize:12,color:C.accent,letterSpacing:"0.12em",wordBreak:"break-all",fontWeight:600}}>{qrData.totp_secret}</div>
+              </div>
+            </div>
+            <div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:6,padding:"10px 14px",fontSize:12,color:C.warning,marginBottom:14}}>
+              ⚠ User must scan before closing. Will NOT be shown again.
+            </div>
+            <button style={{...S.btn("success"),width:"100%"}} onClick={done}>✓ Confirm & Create User</button>
           </>}
+        </div>
+      </div>}
+
+      {deleteUser&&<div style={S.modal} onClick={e=>e.target===e.currentTarget&&setDeleteUser(null)}>
+        <div style={{...S.modalBox,width:380}}>
+          <div style={{fontSize:15,fontWeight:600,marginBottom:12}}>Delete User</div>
+          <div style={{fontSize:13,color:C.muted,marginBottom:24}}>Delete <strong style={{color:C.text}}>{deleteUser.username}</strong>? They will immediately lose all vault access.</div>
+          <div style={{display:"flex",gap:10}}>
+            <button style={S.btn("ghost")} onClick={()=>setDeleteUser(null)}>Cancel</button>
+            <button style={{...S.btn("danger"),flex:1}} onClick={()=>handleDelete(deleteUser)}>Delete User</button>
+          </div>
         </div>
       </div>}
     </div>
   );
 }
 
-// ── App Shell ────────────────────────────────────────────────────────────────
-function App() {
-  const [page,setPage]=useState("accounts"); const [session,setSession]=useState(null); const [hasUsers,setHasUsers]=useState(true); const [showRegister,setShowRegister]=useState(false); const [cart,setCart]=useState([]);
-
+// APP SHELL
+function App(){
+  const [page,setPage]=useState("accounts");const [session,setSession]=useState(null);const [hasUsers,setHasUsers]=useState(true);const [showRegister,setShowRegister]=useState(false);const [cart,setCart]=useState([]);const [checking,setChecking]=useState(true);
   useEffect(()=>{
-    api("GET","/auth/status").then(d=>{setHasUsers(d.has_users); if(!d.has_users) setShowRegister(true);}).catch(()=>{});
-    const t=localStorage.getItem("pam_token");
-    if(t){_token=t; api("GET","/accounts").then(()=>{const u=localStorage.getItem("pam_user"); if(u) setSession({username:u});}).catch(()=>{localStorage.removeItem("pam_token"); localStorage.removeItem("pam_user");});}
+    async function init(){
+      try{
+        const s=await api("GET","/auth/status");
+        setHasUsers(s.has_users);
+        if(!s.has_users){setShowRegister(true);setChecking(false);return;}
+        const t=localStorage.getItem("pam_token");
+        if(t){_token=t;_role=localStorage.getItem("pam_role")||"";
+          try{await api("GET","/accounts");const u=localStorage.getItem("pam_user");if(u)setSession({username:u,role:_role});}
+          catch(e){localStorage.removeItem("pam_token");localStorage.removeItem("pam_user");localStorage.removeItem("pam_role");}
+        }
+      }catch(e){}
+      setChecking(false);
+    }
+    init();
   },[]);
 
-  function handleLogin(d){setSession(d); localStorage.setItem("pam_user",d.username);}
-  async function handleLogout(){try{await api("POST","/auth/logout");}catch(e){} _token=""; localStorage.removeItem("pam_token"); localStorage.removeItem("pam_user"); setSession(null); setCart([]);}
-  function handleRegistered(username){
-    // After registration, go to login page so user logs in properly
-    api("GET","/auth/status").then(d=>setHasUsers(d.has_users));
-    setShowRegister(false);
-  }
+  function handleLogin(d){_token=d.token;_role=d.role;localStorage.setItem("pam_token",d.token);localStorage.setItem("pam_user",d.username);localStorage.setItem("pam_role",d.role);setSession(d);}
+  async function handleLogout(){try{await api("POST","/auth/logout");}catch(e){}_token="";_role="";localStorage.removeItem("pam_token");localStorage.removeItem("pam_user");localStorage.removeItem("pam_role");setSession(null);setCart([]);}
+  function handleRegistered(){api("GET","/auth/status").then(d=>setHasUsers(d.has_users));setShowRegister(false);}
 
-  if(showRegister&&!session) return <RegisterPage onBack={()=>setShowRegister(false)} onDone={handleRegistered}/>;
-  if(!session) return <LoginPage onLogin={handleLogin} hasUsers={hasUsers} onRegister={()=>setShowRegister(true)}/>;
+  if(checking)return <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.muted}}>Loading...</div>;
+  if(showRegister&&!session)return <RegisterPage onBack={()=>setShowRegister(false)} onDone={handleRegistered}/>;
+  if(!session)return <LoginPage onLogin={handleLogin} hasUsers={hasUsers} onRegister={()=>setShowRegister(true)}/>;
 
+  const isReadOnly=session.role==="readonly";
   const navItems=[{key:"accounts",label:"Account Vault",icon:"🔒"},{key:"scheduler",label:"Scheduler",icon:"⏱"},{key:"logs",label:"Audit Logs",icon:"📋"},{key:"users",label:"Vault Users",icon:"👤"}];
 
-  return (
+  return(
     <div style={{display:"flex",minHeight:"100vh"}}>
       <div style={{width:220,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",position:"fixed",top:0,left:0,bottom:0}}>
         <div style={{padding:"22px 20px 14px",borderBottom:`1px solid ${C.border}`}}>
@@ -552,21 +591,21 @@ function App() {
           ))}
         </div>
         <div style={{padding:"14px 20px",borderTop:`1px solid ${C.border}`}}>
-          <div style={{fontSize:12,color:C.muted,marginBottom:3}}>{session.username}</div>
+          <div style={{fontSize:12,color:C.text,marginBottom:4,fontWeight:500}}>{session.username}</div>
+          <div style={{marginBottom:6}}><span style={S.badge(isReadOnly?"purple":"success")}>{isReadOnly?"Read Only":"Admin"}</span></div>
           <div style={{fontSize:10,color:C.dim,marginBottom:10}}>🔐 MFA Active</div>
           <button style={{...S.btn("ghost"),width:"100%",fontSize:11,padding:"6px"}} onClick={handleLogout}>Sign Out</button>
         </div>
       </div>
       <div style={{marginLeft:220,flex:1,padding:"28px 36px"}}>
-        {page==="accounts"&&<AccountsPage cart={cart} setCart={setCart}/>}
-        {page==="scheduler"&&<SchedulerPage/>}
+        {page==="accounts"&&<AccountsPage cart={cart} setCart={setCart} isReadOnly={isReadOnly}/>}
+        {page==="scheduler"&&<SchedulerPage isReadOnly={isReadOnly}/>}
         {page==="logs"&&<LogsPage/>}
-        {page==="users"&&<UsersPage currentUser={session.username}/>}
+        {page==="users"&&<UsersPage currentUser={session.username} currentRole={session.role}/>}
       </div>
     </div>
   );
 }
-
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
