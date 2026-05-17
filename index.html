@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>PAM Vault</title>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -10,10 +10,11 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'IBM Plex Mono',monospace,Consolas;background:#0a0e1a;color:#f1f5f9;font-size:13px;}
-input,select,button{font-family:inherit;}
-::-webkit-scrollbar{width:6px;}
+input,select,button,textarea{font-family:inherit;}
+::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-track{background:#111827;}
 ::-webkit-scrollbar-thumb{background:#1e3a5f;border-radius:3px;}
+input[type=checkbox]{accent-color:#0ea5e9;width:14px;height:14px;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -21,7 +22,9 @@ input,select,button{font-family:inherit;}
 <script type="text/babel">
 const {useState,useEffect,useRef,useCallback}=React;
 const API="";
-const C={bg:"#0a0e1a",surface:"#111827",surface2:"#1a2235",border:"#1e3a5f",accent:"#0ea5e9",success:"#10b981",danger:"#ef4444",warning:"#f59e0b",text:"#f1f5f9",muted:"#94a3b8",dim:"#475569"};
+const C={bg:"#0a0e1a",surface:"#111827",surface2:"#1a2235",surface3:"#0f1929",
+  border:"#1e3a5f",accent:"#0ea5e9",success:"#10b981",danger:"#ef4444",
+  warning:"#f59e0b",purple:"#a78bfa",text:"#f1f5f9",muted:"#94a3b8",dim:"#475569"};
 let _token=localStorage.getItem("pam_token")||"";
 let _role=localStorage.getItem("pam_role")||"";
 
@@ -33,110 +36,197 @@ async function api(method,path,body){
 }
 
 const S={
-  card:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"20px 24px",marginBottom:16},
-  input:{background:C.surface2,border:`1px solid ${C.border}`,borderRadius:6,padding:"8px 12px",color:C.text,fontSize:12,width:"100%",outline:"none"},
-  label:{fontSize:11,color:C.muted,marginBottom:4,display:"block",textTransform:"uppercase",letterSpacing:"0.08em"},
-  btn:(v="primary")=>({padding:"8px 16px",borderRadius:6,border:"none",cursor:"pointer",fontSize:12,fontWeight:500,
+  card:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"18px 22px",marginBottom:14},
+  input:{background:C.surface2,border:`1px solid ${C.border}`,borderRadius:6,padding:"7px 11px",color:C.text,fontSize:12,width:"100%",outline:"none"},
+  label:{fontSize:10,color:C.muted,marginBottom:3,display:"block",textTransform:"uppercase",letterSpacing:"0.08em"},
+  btn:(v="primary",sz="md")=>({padding:sz==="sm"?"5px 10px":"7px 14px",borderRadius:5,border:"none",cursor:"pointer",fontSize:sz==="sm"?11:12,fontWeight:500,
     background:v==="primary"?C.accent:v==="danger"?C.danger:v==="success"?C.success:v==="warning"?C.warning:v==="ghost"?"transparent":C.surface2,
-    color:v==="ghost"?C.muted:"#fff",border:v==="ghost"?`1px solid ${C.border}`:"none"}),
-  modal:{position:"fixed",inset:0,background:"rgba(0,0,0,0.78)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000},
-  modalBox:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:32,width:500,maxHeight:"88vh",overflowY:"auto"},
-  th:{textAlign:"left",padding:"10px 14px",fontSize:11,color:C.muted,textTransform:"uppercase",letterSpacing:"0.08em",borderBottom:`1px solid ${C.border}`},
-  td:{padding:"11px 14px",borderBottom:`1px solid rgba(30,58,95,0.4)`,fontSize:12,verticalAlign:"middle"},
-  badge:(c)=>({display:"inline-block",padding:"2px 8px",borderRadius:4,fontSize:11,
-    background:c==="success"?"rgba(16,185,129,0.15)":c==="danger"?"rgba(239,68,68,0.15)":c==="warning"?"rgba(245,158,11,0.15)":c==="purple"?"rgba(167,139,250,0.15)":"rgba(14,165,233,0.15)",
-    color:c==="success"?C.success:c==="danger"?C.danger:c==="warning"?C.warning:c==="purple"?"#a78bfa":C.accent}),
+    color:v==="ghost"?C.muted:"#fff",border:v==="ghost"?`1px solid ${C.border}`:"none",whiteSpace:"nowrap"}),
+  modal:{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000},
+  modalBox:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:28,width:480,maxHeight:"90vh",overflowY:"auto"},
+  th:{textAlign:"left",padding:"8px 12px",fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:"0.08em",borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"},
+  td:{padding:"9px 12px",borderBottom:`1px solid rgba(30,58,95,0.35)`,fontSize:12,verticalAlign:"middle"},
+  badge:(c)=>({display:"inline-block",padding:"2px 7px",borderRadius:3,fontSize:10,
+    background:c==="success"?"rgba(16,185,129,0.15)":c==="danger"?"rgba(239,68,68,0.15)":c==="warning"?"rgba(245,158,11,0.15)":c==="purple"?"rgba(167,139,250,0.15)":c==="disabled"?"rgba(100,100,100,0.2)":"rgba(14,165,233,0.15)",
+    color:c==="success"?C.success:c==="danger"?C.danger:c==="warning"?C.warning:c==="purple"?C.purple:c==="disabled"?C.dim:C.accent}),
 };
+function F({label,children,half}){return <div style={{marginBottom:12,flex:half?"0 0 calc(50% - 6px)":undefined}}><label style={S.label}>{label}</label>{children}</div>;}
+function Btn({v,sz,onClick,disabled,children,style}){return <button style={{...S.btn(v,sz),...style,opacity:disabled?0.5:1}} onClick={onClick} disabled={disabled}>{children}</button>;}
 
-function F({label,children}){return <div style={{marginBottom:14}}><label style={S.label}>{label}</label>{children}</div>;}
-
-// QR using img tag — loads from qrserver.com (free, no key)
-// Falls back to showing the secret for manual entry
+// QR via qrserver.com img tag
 function QRImg({value,size=180}){
   const [failed,setFailed]=useState(false);
   const url=`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(value)}&bgcolor=ffffff&color=000000&margin=10`;
-  if(failed){
-    return(
-      <div style={{background:"#fff",borderRadius:8,padding:20,display:"inline-block",textAlign:"center",width:size}}>
-        <div style={{color:"#333",fontSize:11,marginBottom:6}}>QR unavailable</div>
-        <div style={{color:"#555",fontSize:10}}>Use the secret below to add manually in Authenticator</div>
-      </div>
-    );
-  }
-  return <img src={url} width={size} height={size} style={{borderRadius:8,display:"block",margin:"0 auto",background:"#fff"}} onError={()=>setFailed(true)} alt="Scan with Microsoft Authenticator"/>;
+  if(failed) return <div style={{background:"#fff",borderRadius:8,padding:16,textAlign:"center",width:size,display:"inline-block"}}><div style={{color:"#333",fontSize:11,marginBottom:6}}>QR unavailable (no internet)</div><div style={{color:"#555",fontSize:10}}>Enter secret manually in Authenticator</div></div>;
+  return <img src={url} width={size} height={size} style={{borderRadius:8,display:"block",margin:"0 auto",background:"#fff"}} onError={()=>setFailed(true)} alt="MFA QR Code"/>;
 }
 
-// LOGIN
+// ── Confirm Dialog ────────────────────────────────────────────────────────────
+function Confirm({title,msg,onConfirm,onCancel,danger=true}){
+  return <div style={S.modal} onClick={e=>e.target===e.currentTarget&&onCancel()}>
+    <div style={{...S.modalBox,width:360}}>
+      <div style={{fontSize:14,fontWeight:600,marginBottom:10}}>{title}</div>
+      <div style={{fontSize:12,color:C.muted,marginBottom:22}}>{msg}</div>
+      <div style={{display:"flex",gap:8}}>
+        <Btn v="ghost" onClick={onCancel}>Cancel</Btn>
+        <button style={{...S.btn(danger?"danger":"primary"),flex:1}} onClick={onConfirm}>Confirm</button>
+      </div>
+    </div>
+  </div>;
+}
+
+// ── TOTP Input Modal ──────────────────────────────────────────────────────────
+function TOTPModal({title,subtitle,onVerify,onClose}){
+  const [code,setCode]=useState("");const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
+  async function submit(){
+    if(code.length!==6)return;
+    setLoading(true);setErr("");
+    try{await onVerify(code);}
+    catch(e){setErr(e.message);setCode("");}
+    finally{setLoading(false);}
+  }
+  return <div style={S.modal} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{...S.modalBox,width:380}}>
+      <div style={{textAlign:"center",marginBottom:16}}>
+        <div style={{fontSize:28,marginBottom:6}}>🔐</div>
+        <div style={{fontSize:14,fontWeight:600}}>{title}</div>
+        {subtitle&&<div style={{fontSize:12,color:C.muted,marginTop:4}}>{subtitle}</div>}
+      </div>
+      <div style={{background:C.surface2,borderRadius:7,padding:"10px 14px",marginBottom:14,fontSize:12,color:C.muted}}>
+        Enter the 6-digit code from <strong style={{color:C.text}}>Microsoft Authenticator</strong>.
+      </div>
+      <F label="Authenticator Code">
+        <input style={{...S.input,fontSize:20,letterSpacing:"0.3em",textAlign:"center"}} value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="000000" maxLength={6} onKeyDown={e=>e.key==="Enter"&&submit()} autoFocus/>
+      </F>
+      {err&&<div style={{color:C.danger,fontSize:12,marginBottom:10}}>⚠ {err}</div>}
+      <div style={{display:"flex",gap:8}}>
+        <Btn v="ghost" onClick={onClose}>Cancel</Btn>
+        <button style={{...S.btn("primary"),flex:1,opacity:(loading||code.length!==6)?0.5:1}} onClick={submit} disabled={loading||code.length!==6}>{loading?"Verifying...":"Verify"}</button>
+      </div>
+    </div>
+  </div>;
+}
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
 function LoginPage({onLogin,hasUsers,onRegister}){
   const [u,setU]=useState("");const [p,setP]=useState("");const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
+  const [locked,setLocked]=useState(false);const [showReset,setShowReset]=useState(false);
+  const [lockedUntil,setLockedUntil]=useState(null);
+
+  // Reset password flow
+  const [resetStep,setResetStep]=useState(1);
+  const [resetCode,setResetCode]=useState("");const [newPass,setNewPass]=useState("");const [newPass2,setNewPass2]=useState("");const [resetErr,setResetErr]=useState("");const [resetLoading,setResetLoading]=useState(false);
+
   async function submit(){
     setLoading(true);setErr("");
-    try{const d=await api("POST","/auth/login",{username:u,password:p});_token=d.token;_role=d.role;localStorage.setItem("pam_token",d.token);localStorage.setItem("pam_role",d.role);onLogin(d);}
-    catch(e){setErr(e.message);}finally{setLoading(false);}
+    try{
+      const d=await api("POST","/auth/login",{username:u,password:p});
+      _token=d.token;_role=d.role;
+      localStorage.setItem("pam_token",d.token);localStorage.setItem("pam_role",d.role);
+      onLogin(d);
+    }catch(e){
+      const msg=e.message;
+      if(msg.includes("locked")){setLocked(true);}
+      setErr(msg);
+    }finally{setLoading(false);}
   }
+
+  async function doReset(){
+    if(newPass!==newPass2){setResetErr("Passwords do not match");return;}
+    if(newPass.length<8){setResetErr("Password must be 8+ characters");return;}
+    setResetLoading(true);setResetErr("");
+    try{
+      await api("POST","/auth/reset_password",{username:u,totp_code:resetCode,new_password:newPass});
+      setShowReset(false);setLocked(false);setErr("Password reset successful. Please log in.");
+    }catch(e){setResetErr(e.message);}
+    finally{setResetLoading(false);}
+  }
+
+  if(showReset) return(
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <div style={{width:420}}>
+        <div style={{textAlign:"center",marginBottom:24}}><div style={{fontSize:22,fontWeight:700,color:C.accent}}>⬡ PAM Vault</div><div style={{fontSize:12,color:C.muted,marginTop:4}}>Reset Password</div></div>
+        <div style={S.card}>
+          <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Enter your MFA code to verify identity, then set a new password.</div>
+          {resetStep===1&&<>
+            <F label="Username (account to reset)"><input style={S.input} value={u} onChange={e=>setU(e.target.value)} placeholder="username"/></F>
+            <F label="Authenticator Code">
+              <input style={{...S.input,fontSize:20,letterSpacing:"0.3em",textAlign:"center"}} value={resetCode} onChange={e=>setResetCode(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="000000" maxLength={6}/>
+            </F>
+            <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setShowReset(false)}>Back</Btn><button style={{...S.btn("primary"),flex:1}} onClick={()=>resetCode.length===6&&setResetStep(2)} disabled={resetCode.length!==6}>Continue</button></div>
+          </>}
+          {resetStep===2&&<>
+            <F label="New Password"><input style={S.input} type="password" value={newPass} onChange={e=>setNewPass(e.target.value)}/></F>
+            <F label="Confirm New Password"><input style={S.input} type="password" value={newPass2} onChange={e=>setNewPass2(e.target.value)}/></F>
+            {resetErr&&<div style={{color:C.danger,fontSize:12,marginBottom:10}}>⚠ {resetErr}</div>}
+            <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setResetStep(1)}>Back</Btn><button style={{...S.btn("success"),flex:1,opacity:resetLoading?0.7:1}} onClick={doReset} disabled={resetLoading}>{resetLoading?"Resetting...":"Reset Password"}</button></div>
+          </>}
+        </div>
+      </div>
+    </div>
+  );
+
   return(
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <div style={{width:380}}>
-        <div style={{textAlign:"center",marginBottom:32}}>
-          <div style={{fontSize:28,fontWeight:700,color:C.accent}}>⬡ PAM Vault</div>
-          <div style={{fontSize:12,color:C.muted,marginTop:6}}>Privileged Access Management System</div>
+      <div style={{width:370}}>
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{fontSize:26,fontWeight:700,color:C.accent}}>⬡ PAM Vault</div>
+          <div style={{fontSize:12,color:C.muted,marginTop:5}}>Privileged Access Management System</div>
         </div>
         <div style={S.card}>
+          {locked&&<div style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:6,padding:"10px 14px",fontSize:12,color:C.danger,marginBottom:14}}>
+            🔒 Account locked after 3 failed attempts.<br/>
+            <span style={{color:C.accent,cursor:"pointer",textDecoration:"underline"}} onClick={()=>{setShowReset(true);setResetStep(1);}}>Reset password with MFA →</span>
+          </div>}
           <F label="Username"><input style={S.input} value={u} onChange={e=>setU(e.target.value)} placeholder="admin" onKeyDown={e=>e.key==="Enter"&&submit()}/></F>
           <F label="Password"><input style={S.input} type="password" value={p} onChange={e=>setP(e.target.value)} placeholder="••••••••" onKeyDown={e=>e.key==="Enter"&&submit()}/></F>
-          {err&&<div style={{color:C.danger,fontSize:12,marginBottom:12}}>⚠ {err}</div>}
-          <button style={{...S.btn("primary"),width:"100%",padding:10,opacity:loading?0.7:1}} onClick={submit} disabled={loading}>{loading?"Signing in...":"Sign In"}</button>
-          {!hasUsers&&<div style={{marginTop:16,textAlign:"center"}}><span style={{fontSize:12,color:C.muted}}>No accounts yet. </span><span style={{fontSize:12,color:C.accent,cursor:"pointer"}} onClick={onRegister}>Create admin →</span></div>}
+          {err&&!locked&&<div style={{color:C.danger,fontSize:12,marginBottom:10}}>⚠ {err}</div>}
+          <Btn v="primary" onClick={submit} disabled={loading||locked} style={{width:"100%",padding:9,opacity:loading?0.7:1}}>{loading?"Signing in...":"Sign In"}</Btn>
+          {!hasUsers&&<div style={{marginTop:14,textAlign:"center"}}><span style={{fontSize:12,color:C.muted}}>No accounts yet. </span><span style={{fontSize:12,color:C.accent,cursor:"pointer"}} onClick={onRegister}>Create admin →</span></div>}
         </div>
-        <div style={{textAlign:"center",fontSize:11,color:C.dim,marginTop:16}}>TP072352 · APU Cybersecurity FYP</div>
+        <div style={{textAlign:"center",fontSize:11,color:C.dim,marginTop:12}}>TP072352 · APU Cybersecurity FYP</div>
       </div>
     </div>
   );
 }
 
-// REGISTER
+// ── REGISTER ──────────────────────────────────────────────────────────────────
 function RegisterPage({onBack,onDone}){
-  const [step,setStep]=useState(1);
-  const [u,setU]=useState("");const [p,setP]=useState("");const [c,setC]=useState("");
+  const [step,setStep]=useState(1);const [u,setU]=useState("");const [p,setP]=useState("");const [c,setC]=useState("");
   const [err,setErr]=useState("");const [qrData,setQrData]=useState(null);const [loading,setLoading]=useState(false);
   async function submit(){
-    if(!u.trim()){setErr("Username required");return;}
-    if(p.length<8){setErr("Password must be 8+ characters");return;}
-    if(p!==c){setErr("Passwords do not match");return;}
+    if(!u.trim()){setErr("Username required");return;}if(p.length<8){setErr("Password 8+ chars");return;}if(p!==c){setErr("Passwords don't match");return;}
     setLoading(true);setErr("");
     try{const d=await api("POST","/auth/register",{username:u,password:p});setQrData(d);setStep(2);}
     catch(e){setErr(e.message);}finally{setLoading(false);}
   }
   return(
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <div style={{width:500}}>
-        <div style={{textAlign:"center",marginBottom:28}}><div style={{fontSize:22,fontWeight:700,color:C.accent}}>⬡ PAM Vault</div><div style={{fontSize:12,color:C.muted,marginTop:4}}>Create Admin Account</div></div>
+      <div style={{width:480}}>
+        <div style={{textAlign:"center",marginBottom:22}}><div style={{fontSize:20,fontWeight:700,color:C.accent}}>⬡ PAM Vault</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>Create Admin Account</div></div>
         <div style={S.card}>
           {step===1&&<>
-            <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Step 1 of 2 — Account details</div>
+            <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Step 1 of 2 — Account details</div>
             <F label="Username"><input style={S.input} value={u} onChange={e=>setU(e.target.value)} placeholder="admin"/></F>
             <F label="Password"><input style={S.input} type="password" value={p} onChange={e=>setP(e.target.value)}/></F>
             <F label="Confirm Password"><input style={S.input} type="password" value={c} onChange={e=>setC(e.target.value)}/></F>
-            {err&&<div style={{color:C.danger,fontSize:12,marginBottom:12}}>⚠ {err}</div>}
-            <div style={{display:"flex",gap:10}}>
-              <button style={S.btn("ghost")} onClick={onBack}>Back</button>
-              <button style={{...S.btn("primary"),flex:1,opacity:loading?0.7:1}} onClick={submit} disabled={loading}>{loading?"Creating...":"Continue"}</button>
-            </div>
+            {err&&<div style={{color:C.danger,fontSize:12,marginBottom:10}}>⚠ {err}</div>}
+            <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={onBack}>Back</Btn><button style={{...S.btn("primary"),flex:1,opacity:loading?0.7:1}} onClick={submit} disabled={loading}>{loading?"Creating...":"Continue"}</button></div>
           </>}
           {step===2&&qrData&&<>
-            <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Step 2 of 2 — Set up Microsoft Authenticator</div>
-            <div style={{background:C.surface2,borderRadius:8,padding:24,textAlign:"center",marginBottom:16}}>
-              <QRImg value={qrData.otp_uri} size={190}/>
-              <div style={{marginTop:14,fontSize:12,color:C.muted}}>Open <strong style={{color:C.text}}>Microsoft Authenticator</strong> → Add account → Scan QR</div>
-              <div style={{marginTop:12,background:C.surface,borderRadius:6,padding:"10px 14px",display:"inline-block",textAlign:"left"}}>
-                <div style={{fontSize:10,color:C.dim,marginBottom:4,textTransform:"uppercase",letterSpacing:"0.08em"}}>Or enter secret manually:</div>
-                <div style={{fontSize:13,color:C.accent,letterSpacing:"0.15em",wordBreak:"break-all",fontWeight:600}}>{qrData.totp_secret}</div>
+            <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Step 2 of 2 — Set up Microsoft Authenticator</div>
+            <div style={{background:C.surface2,borderRadius:8,padding:20,textAlign:"center",marginBottom:14}}>
+              <QRImg value={qrData.otp_uri} size={180}/>
+              <div style={{marginTop:12,fontSize:12,color:C.muted}}>Open <strong style={{color:C.text}}>Microsoft Authenticator</strong> → Add account → Scan QR</div>
+              <div style={{marginTop:10,background:C.surface,borderRadius:6,padding:"8px 12px",display:"inline-block"}}>
+                <div style={{fontSize:10,color:C.dim,marginBottom:2,textTransform:"uppercase"}}>Manual secret:</div>
+                <div style={{fontSize:12,color:C.accent,letterSpacing:"0.12em",wordBreak:"break-all",fontWeight:600}}>{qrData.totp_secret}</div>
               </div>
             </div>
-            <div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:6,padding:"12px 16px",fontSize:12,color:C.warning,marginBottom:20}}>
-              ⚠ <strong>Save this QR code or secret now.</strong> It will NOT be shown again. You need it every time you retrieve a credential.
+            <div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:6,padding:"10px 14px",fontSize:12,color:C.warning,marginBottom:16}}>
+              ⚠ <strong>Save this QR now.</strong> It will NOT be shown again. Required to retrieve credentials.
             </div>
-            <button style={{...S.btn("success"),width:"100%",padding:11}} onClick={onDone}>✓ I've scanned the QR — Go to Login</button>
+            <Btn v="success" onClick={onDone} style={{width:"100%",padding:9}}>✓ I've scanned — Go to Login</Btn>
           </>}
         </div>
       </div>
@@ -144,285 +234,502 @@ function RegisterPage({onBack,onDone}){
   );
 }
 
-// ACCOUNT MODAL
-const PRESETS={"Windows 10":{os:"windows",port:5985,icon:"🪟"},"Windows Server":{os:"windows",port:5985,icon:"🖥️"},"Linux":{os:"linux",port:22,icon:"🐧"},"Ubuntu":{os:"linux",port:22,icon:"🟠"},"Custom":{os:"linux",port:22,icon:"⚙️"}};
-function AccountModal({account,onSave,onClose}){
-  const isEdit=!!account?.id;
-  const [preset,setPreset]=useState(account?.preset||"Linux");
-  const [form,setForm]=useState({name:account?.name||"",hostname:account?.hostname||"",username:account?.username||"",os:account?.os||"linux",port:account?.port||22,description:account?.description||"",password_length:account?.password_length||15,preset:account?.preset||"Linux",password:""});
-  const [loading,setLoading]=useState(false);const [err,setErr]=useState("");
-  function applyPreset(p){setPreset(p);const t=PRESETS[p];setForm(f=>({...f,os:t.os,port:t.port,preset:p}));}
-  async function handleSave(){
-    if(!form.name||!form.hostname||!form.username){setErr("Name, hostname and username are required.");return;}
-    setLoading(true);setErr("");
-    try{await onSave(form,isEdit);}catch(e){setErr(e.message);}finally{setLoading(false);}
+// ── ACCOUNT DETAIL PAGE ───────────────────────────────────────────────────────
+function AccountDetailPage({account:initAcc,onBack,isReadOnly,currentUser}){
+  const [acc,setAcc]=useState(initAcc);
+  const [tab,setTab]=useState("cpm"); // cpm | activities | psm
+  const [logs,setLogs]=useState([]);
+  const [logsLoading,setLogsLoading]=useState(true);
+  const [showEdit,setShowEdit]=useState(false);
+  const [showRetrieve,setShowRetrieve]=useState(false);
+  const [showChangePass,setShowChangePass]=useState(false);
+  const [verifying,setVerifying]=useState(false);
+  const [verifyResult,setVerifyResult]=useState(null);
+  const [actionMsg,setActionMsg]=useState(null); // {type,text}
+
+  async function loadLogs(){
+    setLogsLoading(true);
+    try{const d=await api("GET",`/logs?account_id=${acc.id}`);setLogs(d);}catch(e){}
+    finally{setLogsLoading(false);}
   }
+  async function refreshAcc(){
+    try{const d=await api("GET","/accounts");const updated=d.find(a=>a.id===acc.id);if(updated)setAcc(updated);}catch(e){}
+  }
+  useEffect(()=>{loadLogs();},[acc.id]);
+
+  async function doVerify(){
+    setVerifying(true);setVerifyResult(null);setActionMsg(null);
+    try{
+      const d=await api("POST",`/accounts/${acc.id}/verify`);
+      setVerifyResult(d);
+      setActionMsg({type:d.success?"success":"error",text:d.success?"✓ Verification successful — credentials are valid.":"✗ Verification failed: "+(d.error||d.code)});
+      await refreshAcc();await loadLogs();
+    }catch(e){setActionMsg({type:"error",text:"Verify error: "+e.message});}
+    finally{setVerifying(false);}
+  }
+
+  const typeColor={success:C.success,error:C.danger,warning:C.warning,info:C.accent};
+  const statusBadge=()=>{
+    if(!acc.auto_management) return "disabled";
+    return acc.status==="active"?"success":acc.status==="error"?"danger":"warning";
+  };
+  const statusLabel=()=>{
+    if(!acc.auto_management) return "Mgmt Disabled";
+    return acc.status;
+  };
+
+  // CPM tab: show latest status
+  const cpmLogs = logs.filter(l=>l.code?.match(/ROT_|VERIFY_|POSTVERIFY_/));
+  const lastCPM = cpmLogs[0];
+
+  // Activities tab: all logs
+  const actLogs = logs;
+
   return(
-    <div style={S.modal} onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={S.modalBox}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-          <div style={{fontSize:15,fontWeight:600}}>{isEdit?"Edit Account":"Add Account"}</div>
-          <button style={{...S.btn("ghost"),padding:"4px 8px"}} onClick={onClose}>✕</button>
+    <div style={{display:"flex",gap:0,height:"calc(100vh - 56px)"}}>
+      {/* Left panel — account info */}
+      <div style={{width:300,minWidth:280,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",overflowY:"auto"}}>
+        <div style={{padding:"16px 18px",borderBottom:`1px solid ${C.border}`}}>
+          <button onClick={onBack} style={{...S.btn("ghost","sm"),marginBottom:12,paddingLeft:0}}>← Back to Vault</button>
+          <div style={{fontSize:16,fontWeight:700,color:C.text,marginBottom:2}}>{acc.name}</div>
+          <div style={{fontSize:11,color:C.muted}}>{acc.username}@{acc.hostname}</div>
+          <div style={{marginTop:8}}><span style={S.badge(statusBadge())}>{statusLabel()}</span></div>
         </div>
-        {!isEdit&&<F label="Preset Template"><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          {Object.entries(PRESETS).map(([k,v])=>(
-            <button key={k} onClick={()=>applyPreset(k)} style={{padding:"5px 11px",borderRadius:6,border:`1px solid ${preset===k?C.accent:C.border}`,background:preset===k?"rgba(14,165,233,0.12)":C.surface2,color:preset===k?C.accent:C.muted,cursor:"pointer",fontSize:12}}>{v.icon} {k}</button>
+
+        {/* Action buttons */}
+        {!isReadOnly&&<div style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",flexDirection:"column",gap:6}}>
+          <Btn v="primary" sz="sm" onClick={()=>setShowRetrieve(true)} style={{width:"100%"}}>🔑 Retrieve Credential</Btn>
+          <Btn v="default" sz="sm" onClick={doVerify} disabled={verifying} style={{width:"100%",background:C.surface2,color:C.text}}>{verifying?"⟳ Verifying...":"✓ Verify Password"}</Btn>
+          <Btn v="warning" sz="sm" onClick={()=>setShowChangePass(true)} style={{width:"100%"}}>🔄 Change Password</Btn>
+          <Btn v="ghost" sz="sm" onClick={()=>setShowEdit(true)} style={{width:"100%"}}>✏️ Edit Account</Btn>
+        </div>}
+        {isReadOnly&&<div style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`}}>
+          <Btn v="primary" sz="sm" onClick={()=>setShowRetrieve(true)} style={{width:"100%"}}>🔑 Retrieve Credential</Btn>
+        </div>}
+
+        {actionMsg&&<div style={{margin:"10px 18px",background:actionMsg.type==="success"?"rgba(16,185,129,0.08)":"rgba(239,68,68,0.08)",border:`1px solid ${actionMsg.type==="success"?"rgba(16,185,129,0.25)":"rgba(239,68,68,0.25)"}`,borderRadius:6,padding:"8px 12px",fontSize:12,color:actionMsg.type==="success"?C.success:C.danger}}>
+          {actionMsg.text}
+        </div>}
+
+        {/* Account info fields */}
+        <div style={{padding:"14px 18px",flex:1}}>
+          {[
+            ["Platform / OS", acc.os==="windows"?"Windows":"Linux"],
+            ["Address", acc.hostname],
+            ["Port", acc.port],
+            ["Username", acc.username],
+            ["Password Length", `${acc.password_length} characters`],
+            ["Last Verified", acc.last_verified?new Date(acc.last_verified).toLocaleString():"Never"],
+            ["Last Changed", acc.last_rotated?new Date(acc.last_rotated).toLocaleString():"Never"],
+            ["Last Modified", acc.created_at?new Date(acc.created_at).toLocaleDateString():"—"],
+            ["Auto Management", acc.auto_management?"Enabled":"Disabled"],
+            ["Description", acc.description||"—"],
+          ].map(([k,v])=>(
+            <div key={k} style={{marginBottom:10,paddingBottom:10,borderBottom:`1px solid rgba(30,58,95,0.3)`}}>
+              <div style={{fontSize:10,color:C.dim,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>{k}</div>
+              <div style={{fontSize:12,color:C.text,wordBreak:"break-all"}}>{v}</div>
+            </div>
           ))}
-        </div></F>}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
-          <F label="Account Name"><input style={S.input} value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Linux Web Server"/></F>
-          <F label="Hostname / IP"><input style={S.input} value={form.hostname} onChange={e=>setForm(f=>({...f,hostname:e.target.value}))} placeholder="192.168.1.20"/></F>
-          <F label="Username"><input style={S.input} value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))} placeholder="root"/></F>
-          <F label="OS"><select style={S.input} value={form.os} onChange={e=>setForm(f=>({...f,os:e.target.value}))}><option value="linux">Linux</option><option value="windows">Windows</option></select></F>
-          <F label="Port"><input style={S.input} type="number" value={form.port} onChange={e=>setForm(f=>({...f,port:Number(e.target.value)}))}/></F>
-          <F label="Password Length"><select style={S.input} value={form.password_length} onChange={e=>setForm(f=>({...f,password_length:Number(e.target.value)}))}>
-            <option value={8}>8 characters</option><option value={15}>15 characters</option><option value={20}>20 characters</option>
-          </select></F>
+          {!acc.auto_management&&acc.disable_reason&&(
+            <div style={{background:"rgba(100,100,100,0.1)",border:"1px solid rgba(100,100,100,0.2)",borderRadius:5,padding:"8px 10px",fontSize:12,color:C.muted}}>
+              <div style={{fontSize:10,color:C.dim,marginBottom:3}}>DISABLE REASON</div>
+              {acc.disable_reason}
+            </div>
+          )}
         </div>
-        <F label="Description"><input style={S.input} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="Optional notes"/></F>
-        <F label="Initial Password (leave blank to auto-generate)"><input style={S.input} value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))} placeholder={`Auto-generates ${form.password_length}-char password`}/></F>
-        {err&&<div style={{color:C.danger,fontSize:12,marginBottom:12}}>⚠ {err}</div>}
-        <div style={{display:"flex",gap:10}}>
-          <button style={S.btn("ghost")} onClick={onClose}>Cancel</button>
-          <button style={{...S.btn("primary"),flex:1,opacity:loading?0.7:1}} onClick={handleSave} disabled={loading}>{loading?"Saving...":isEdit?"Save Changes":"Add Account"}</button>
+      </div>
+
+      {/* Right panel — tabs */}
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        {/* Tab bar */}
+        <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,background:C.surface,paddingLeft:20}}>
+          {[["cpm","CPM"],["activities","Activities"],["psm","PSM Connect"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setTab(k)} style={{padding:"11px 18px",border:"none",background:"transparent",color:tab===k?C.accent:C.muted,borderBottom:tab===k?`2px solid ${C.accent}`:"2px solid transparent",cursor:"pointer",fontSize:12,fontWeight:tab===k?600:400}}>
+              {l}
+            </button>
+          ))}
+          <div style={{flex:1}}/>
+          <button onClick={()=>{loadLogs();refreshAcc();}} style={{...S.btn("ghost","sm"),margin:"6px 12px",fontSize:11}}>↻ Refresh</button>
+        </div>
+
+        {/* CPM Tab */}
+        {tab==="cpm"&&<div style={{flex:1,overflowY:"auto",padding:20}}>
+          <div style={{fontSize:13,fontWeight:600,marginBottom:14,color:C.text}}>Central Password Manager</div>
+          {/* Status card */}
+          <div style={{...S.card,borderColor:lastCPM?.type==="error"?C.danger:lastCPM?.type==="success"?C.success:C.border}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+              <span style={{fontSize:20}}>{!acc.auto_management?"⛔":lastCPM?.type==="error"?"⚠️":lastCPM?.type==="success"?"✅":"ℹ️"}</span>
+              <div>
+                <div style={{fontWeight:600,fontSize:13}}>
+                  {!acc.auto_management?"Automatic Management Disabled":lastCPM?.type==="error"?"CPM Error":lastCPM?.type==="success"?"CPM Success":"No Recent Activity"}
+                </div>
+                {lastCPM&&<div style={{fontSize:11,color:C.dim,marginTop:2}}>{new Date(lastCPM.timestamp).toLocaleString()}</div>}
+              </div>
+              {lastCPM&&<span style={{...S.badge(lastCPM.type==="success"?"success":"danger"),marginLeft:"auto"}}>{lastCPM.code}</span>}
+            </div>
+            {!acc.auto_management&&<div style={{fontSize:12,color:C.muted}}>
+              This account has automatic password management disabled.{acc.disable_reason?" Reason: "+acc.disable_reason:""}
+            </div>}
+            {lastCPM&&<div style={{fontSize:12,color:lastCPM.type==="error"?C.danger:C.muted,background:C.surface2,borderRadius:5,padding:"8px 12px"}}>{lastCPM.message}</div>}
+          </div>
+
+          {/* Recent CPM events */}
+          <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:10,textTransform:"uppercase",letterSpacing:"0.08em"}}>Recent CPM Events</div>
+          {logsLoading?<div style={{color:C.dim,fontSize:12}}>Loading...</div>:
+          cpmLogs.length===0?<div style={{color:C.dim,fontSize:12}}>No CPM events yet.</div>:
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {cpmLogs.slice(0,10).map((l,i)=>(
+              <div key={i} style={{background:C.surface2,borderRadius:6,padding:"10px 14px",border:`1px solid ${l.type==="error"?C.danger:l.type==="success"?C.success:C.border}`,borderLeftWidth:3}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                  <span style={{fontSize:11,color:typeColor[l.type]||C.muted,fontWeight:600}}>{l.code}</span>
+                  <span style={{fontSize:10,color:C.dim,marginLeft:"auto"}}>{new Date(l.timestamp).toLocaleString()}</span>
+                </div>
+                <div style={{fontSize:12,color:l.type==="error"?C.danger:C.text}}>{l.message}</div>
+                {l.user&&<div style={{fontSize:10,color:C.dim,marginTop:3}}>by {l.user}</div>}
+              </div>
+            ))}
+          </div>}
+        </div>}
+
+        {/* Activities Tab */}
+        {tab==="activities"&&<div style={{flex:1,overflowY:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead style={{position:"sticky",top:0,background:C.surface,zIndex:1}}>
+              <tr>
+                <th style={S.th}>Time</th>
+                <th style={S.th}>User</th>
+                <th style={S.th}>Action</th>
+                <th style={S.th}>Status</th>
+                <th style={S.th}>More Info</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logsLoading&&<tr><td colSpan={5} style={{...S.td,textAlign:"center",color:C.dim,padding:30}}>Loading...</td></tr>}
+              {!logsLoading&&actLogs.length===0&&<tr><td colSpan={5} style={{...S.td,textAlign:"center",color:C.dim,padding:30}}>No activity recorded yet.</td></tr>}
+              {actLogs.map((l,i)=>(
+                <tr key={i} style={{background:i%2===0?"transparent":"rgba(26,34,53,0.3)"}}>
+                  <td style={{...S.td,fontSize:11,color:C.dim,whiteSpace:"nowrap"}}>{new Date(l.timestamp).toLocaleString('en-GB',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:3})}</td>
+                  <td style={{...S.td,color:C.muted}}>{l.user||"system"}</td>
+                  <td style={{...S.td,color:C.text}}>{l.code}</td>
+                  <td style={S.td}><span style={S.badge(l.type==="success"?"success":l.type==="error"?"danger":l.type==="warning"?"warning":"info")}>{l.type}</span></td>
+                  <td style={{...S.td,color:l.type==="error"?C.danger:C.muted,fontSize:11,maxWidth:300}}>{l.message}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>}
+
+        {/* PSM Connect Tab */}
+        {tab==="psm"&&<PSMTab account={acc}/>}
+      </div>
+
+      {/* Modals */}
+      {showRetrieve&&<RetrieveModal account={acc} onClose={()=>setShowRetrieve(false)} onDone={loadLogs}/>}
+      {showChangePass&&<ChangePassModal account={acc} onClose={()=>{setShowChangePass(false);refreshAcc();loadLogs();}} onDone={msg=>{setActionMsg({type:"success",text:msg});setShowChangePass(false);refreshAcc();loadLogs();}}/>}
+      {showEdit&&<AccountEditModal account={acc} onSave={async(form)=>{await api("PUT",`/accounts/${acc.id}`,form);setShowEdit(false);refreshAcc();loadLogs();}} onClose={()=>setShowEdit(false)}/>}
+    </div>
+  );
+}
+
+// ── PSM Tab ───────────────────────────────────────────────────────────────────
+function PSMTab({account}){
+  const [status,setStatus]=useState("idle"); // idle | connecting | connected | failed
+  const [msg,setMsg]=useState("");
+
+  async function connect(){
+    setStatus("connecting");setMsg("");
+    // For Linux: attempt SSH via a websocket terminal (xterm.js) — not available without extra server
+    // For Windows: attempt RDP file download
+    await new Promise(r=>setTimeout(r,1500));
+    if(account.os==="windows"){
+      // Generate .rdp file content
+      const rdp=`full address:s:${account.hostname}:${account.port===5985?3389:account.port}\nusername:s:${account.username}\nauthentication level:i:2\nenablecredsspsupport:i:0\n`;
+      const blob=new Blob([rdp],{type:"text/plain"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");a.href=url;a.download=`${account.name.replace(/\s+/g,"_")}.rdp`;a.click();
+      setStatus("connected");setMsg("RDP file downloaded. Open it to start a Remote Desktop session to "+account.hostname+".");
+    } else {
+      // For Linux: show SSH command
+      setStatus("connected");setMsg(`SSH command:\n\nssh ${account.username}@${account.hostname} -p ${account.port}\n\nFor browser-based SSH, deploy a webssh or shellinabox service on the controller.`);
+    }
+  }
+
+  return(
+    <div style={{padding:24,overflowY:"auto",flex:1}}>
+      <div style={{fontSize:13,fontWeight:600,marginBottom:6}}>PSM Connect</div>
+      <div style={{fontSize:12,color:C.muted,marginBottom:20}}>
+        {account.os==="windows"?"Launch a Remote Desktop (RDP) session to this Windows machine.":"Launch an SSH session to this Linux machine."}
+      </div>
+
+      <div style={{...S.card,marginBottom:16}}>
+        <div style={{display:"flex",flexWrap:"wrap",gap:20,marginBottom:16}}>
+          {[["Target",""+account.hostname],["Protocol",account.os==="windows"?"RDP (3389)":"SSH ("+account.port+")"],["Username",account.username],["OS",account.os==="windows"?"Windows":"Linux"]].map(([k,v])=>(
+            <div key={k}><div style={{fontSize:10,color:C.dim,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>{k}</div><div style={{fontSize:12,color:C.text}}>{v}</div></div>
+          ))}
+        </div>
+
+        <Btn v={status==="connecting"?"ghost":"primary"} onClick={connect} disabled={status==="connecting"} style={{marginBottom:status!=="idle"?12:0}}>
+          {status==="connecting"?"⟳ Connecting...":account.os==="windows"?"▶ Launch RDP Session":"▶ Get SSH Command"}
+        </Btn>
+
+        {status==="connected"&&<div style={{background:C.surface2,borderRadius:6,padding:"12px 14px",fontSize:12,color:C.success,whiteSpace:"pre-wrap"}}>{msg}</div>}
+        {status==="failed"&&<div style={{background:"rgba(239,68,68,0.08)",borderRadius:6,padding:"10px 14px",fontSize:12,color:C.danger}}>{msg}</div>}
+      </div>
+
+      <div style={{...S.card,background:"rgba(14,165,233,0.04)"}}>
+        <div style={{fontSize:11,fontWeight:600,color:C.accent,marginBottom:8}}>ℹ PSM Notes</div>
+        <div style={{fontSize:12,color:C.muted,lineHeight:1.7}}>
+          {account.os==="windows"
+            ?"Windows RDP: Make sure Remote Desktop is enabled on the target machine (System → Remote Desktop → Enable). The downloaded .rdp file can be opened with Remote Desktop Connection on any Windows machine."
+            :"Linux SSH: Use the SSH command above in your terminal. For browser-based SSH access, you can deploy shellinabox or ttyd on the controller machine."}
         </div>
       </div>
     </div>
   );
 }
 
-// RETRIEVE MODAL — TOTP gated
-function RetrieveModal({account,onClose}){
+// ── Retrieve Modal ────────────────────────────────────────────────────────────
+function RetrieveModal({account,onClose,onDone}){
   const [code,setCode]=useState("");const [revealed,setRevealed]=useState(null);const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
   async function verify(){
-    if(code.length!==6)return;
-    setLoading(true);setErr("");
-    try{const d=await api("POST",`/accounts/${account.id}/retrieve`,{totp_code:code});setRevealed(d);}
+    if(code.length!==6)return;setLoading(true);setErr("");
+    try{const d=await api("POST",`/accounts/${account.id}/retrieve`,{totp_code:code});setRevealed(d);if(onDone)onDone();}
     catch(e){setErr(e.message);}finally{setLoading(false);}
   }
-  return(
-    <div style={S.modal} onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{...S.modalBox,width:420}}>
-        <div style={{textAlign:"center",marginBottom:20}}>
-          <div style={{fontSize:32,marginBottom:8}}>🔐</div>
-          <div style={{fontSize:15,fontWeight:600}}>Retrieve Credential</div>
-          <div style={{fontSize:12,color:C.muted,marginTop:4}}>{account.username}@{account.hostname}</div>
-        </div>
-        {!revealed?<>
-          <div style={{background:C.surface2,borderRadius:8,padding:"12px 16px",marginBottom:16,fontSize:12,color:C.muted,lineHeight:1.7}}>
-            Enter the 6-digit code from your <strong style={{color:C.text}}>Microsoft Authenticator</strong> app.
-          </div>
-          <F label="Authenticator Code">
-            <input style={{...S.input,fontSize:22,letterSpacing:"0.35em",textAlign:"center"}} value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="000000" maxLength={6} onKeyDown={e=>e.key==="Enter"&&verify()} autoFocus/>
-          </F>
-          {err&&<div style={{color:C.danger,fontSize:12,marginBottom:12}}>⚠ {err}</div>}
-          <div style={{display:"flex",gap:10}}>
-            <button style={S.btn("ghost")} onClick={onClose}>Cancel</button>
-            <button style={{...S.btn("primary"),flex:1,opacity:(loading||code.length!==6)?0.5:1}} onClick={verify} disabled={loading||code.length!==6}>{loading?"Verifying...":"Verify & Reveal"}</button>
-          </div>
-        </>:<>
-          <div style={{background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.2)",borderRadius:8,padding:"16px 20px",marginBottom:16}}>
-            <div style={{fontSize:11,color:C.muted,marginBottom:4,textTransform:"uppercase",letterSpacing:"0.08em"}}>Username</div>
-            <div style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:14}}>{revealed.username}</div>
-            <div style={{fontSize:11,color:C.muted,marginBottom:4,textTransform:"uppercase",letterSpacing:"0.08em"}}>Current Password</div>
-            <div style={{fontSize:18,fontWeight:700,color:C.success,letterSpacing:"0.05em",wordBreak:"break-all"}}>{revealed.password}</div>
-          </div>
-          <div style={{fontSize:11,color:C.dim,marginBottom:16,textAlign:"center"}}>⚠ This retrieval has been logged in the audit trail.</div>
-          <button style={{...S.btn("ghost"),width:"100%"}} onClick={onClose}>Close</button>
-        </>}
+  return <div style={S.modal} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{...S.modalBox,width:400}}>
+      <div style={{textAlign:"center",marginBottom:16}}>
+        <div style={{fontSize:28,marginBottom:6}}>🔐</div>
+        <div style={{fontSize:14,fontWeight:600}}>Retrieve Credential</div>
+        <div style={{fontSize:12,color:C.muted,marginTop:3}}>{account.username}@{account.hostname}</div>
       </div>
+      {!revealed?<>
+        <div style={{background:C.surface2,borderRadius:6,padding:"10px 14px",marginBottom:14,fontSize:12,color:C.muted}}>Enter 6-digit code from <strong style={{color:C.text}}>Microsoft Authenticator</strong>.</div>
+        <F label="Authenticator Code"><input style={{...S.input,fontSize:20,letterSpacing:"0.3em",textAlign:"center"}} value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="000000" maxLength={6} onKeyDown={e=>e.key==="Enter"&&verify()} autoFocus/></F>
+        {err&&<div style={{color:C.danger,fontSize:12,marginBottom:10}}>⚠ {err}</div>}
+        <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={onClose}>Cancel</Btn><button style={{...S.btn("primary"),flex:1,opacity:(loading||code.length!==6)?0.5:1}} onClick={verify} disabled={loading||code.length!==6}>{loading?"Verifying...":"Verify & Reveal"}</button></div>
+      </>:<>
+        <div style={{background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.25)",borderRadius:8,padding:"14px 18px",marginBottom:14}}>
+          <div style={{fontSize:10,color:C.muted,marginBottom:3,textTransform:"uppercase"}}>Username</div>
+          <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:12}}>{revealed.username}</div>
+          <div style={{fontSize:10,color:C.muted,marginBottom:3,textTransform:"uppercase"}}>Current Password</div>
+          <div style={{fontSize:17,fontWeight:700,color:C.success,letterSpacing:"0.05em",wordBreak:"break-all"}}>{revealed.password}</div>
+        </div>
+        <div style={{fontSize:11,color:C.dim,marginBottom:14,textAlign:"center"}}>⚠ Retrieval logged in audit trail.</div>
+        <Btn v="ghost" onClick={onClose} style={{width:"100%"}}>Close</Btn>
+      </>}
     </div>
-  );
+  </div>;
 }
 
-// ACCOUNTS PAGE
-function AccountsPage({cart,setCart,isReadOnly}){
-  const [accounts,setAccounts]=useState([]);const [showAdd,setShowAdd]=useState(false);const [editAcc,setEditAcc]=useState(null);const [retrieveAcc,setRetrieveAcc]=useState(null);const [deleteAcc,setDeleteAcc]=useState(null);const [search,setSearch]=useState("");const [loading,setLoading]=useState(true);const [rotating,setRotating]=useState({});
+// ── Change Password Modal ─────────────────────────────────────────────────────
+function ChangePassModal({account,onClose,onDone}){
+  const [loading,setLoading]=useState(false);const [err,setErr]=useState("");
+  async function doChange(){
+    setLoading(true);setErr("");
+    try{
+      const d=await api("POST",`/accounts/${account.id}/rotate`);
+      if(d.success) onDone("✓ Password changed successfully and stored in vault.");
+      else setErr("Change failed: "+(d.error||"Unknown error"));
+    }catch(e){setErr(e.message);}finally{setLoading(false);}
+  }
+  return <div style={S.modal} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{...S.modalBox,width:380}}>
+      <div style={{fontSize:14,fontWeight:600,marginBottom:10}}>Change Password</div>
+      <div style={{fontSize:12,color:C.muted,marginBottom:6}}>Account: <strong style={{color:C.text}}>{account.name}</strong></div>
+      <div style={{fontSize:12,color:C.muted,marginBottom:6}}>Target: <strong style={{color:C.text}}>{account.username}@{account.hostname}</strong></div>
+      <div style={{background:C.surface2,borderRadius:6,padding:"10px 14px",fontSize:12,color:C.muted,marginBottom:18,lineHeight:1.6}}>
+        A new <strong style={{color:C.text}}>{account.password_length}-character</strong> password will be generated, applied on the remote machine via {account.os==="windows"?"WinRM":"SSH"}, verified, and stored in the encrypted vault.
+      </div>
+      {!account.auto_management&&<div style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:6,padding:"10px 14px",fontSize:12,color:C.danger,marginBottom:14}}>⚠ Automatic management is disabled for this account.</div>}
+      {err&&<div style={{color:C.danger,fontSize:12,marginBottom:12}}>⚠ {err}</div>}
+      <div style={{display:"flex",gap:8}}>
+        <Btn v="ghost" onClick={onClose}>Cancel</Btn>
+        <button style={{...S.btn("warning"),flex:1,opacity:loading?0.7:1}} onClick={doChange} disabled={loading}>{loading?"Changing...":"Change Password Now"}</button>
+      </div>
+    </div>
+  </div>;
+}
+
+// ── Account Edit Modal ────────────────────────────────────────────────────────
+const PRESETS={"Windows 10":{os:"windows",port:5985},"Windows Server":{os:"windows",port:5985},"Linux":{os:"linux",port:22},"Ubuntu":{os:"linux",port:22},"Custom":{os:"linux",port:22}};
+function AccountEditModal({account,onSave,onClose}){
+  const [form,setForm]=useState({
+    name:account?.name||"",hostname:account?.hostname||"",username:account?.username||"",
+    os:account?.os||"linux",port:account?.port||22,description:account?.description||"",
+    password_length:account?.password_length||15,preset:account?.preset||"Custom",
+    auto_management:account?.auto_management!==false,disable_reason:account?.disable_reason||"",
+    password:""
+  });
+  const [loading,setLoading]=useState(false);const [err,setErr]=useState("");
+  async function save(){
+    if(!form.name||!form.hostname||!form.username){setErr("Name, hostname and username required.");return;}
+    setLoading(true);setErr("");
+    try{await onSave(form);}catch(e){setErr(e.message);}finally{setLoading(false);}
+  }
+  const isAdd=!account?.id;
+  return <div style={S.modal} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{...S.modalBox,width:520}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
+        <div style={{fontSize:14,fontWeight:600}}>{isAdd?"Add Account":"Edit Account"}</div>
+        <Btn v="ghost" sz="sm" onClick={onClose}>✕</Btn>
+      </div>
+      {isAdd&&<F label="Preset Template"><div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:4}}>
+        {Object.entries(PRESETS).map(([k,v])=>(
+          <button key={k} onClick={()=>setForm(f=>({...f,os:v.os,port:v.port,preset:k}))} style={{padding:"4px 10px",borderRadius:5,border:`1px solid ${form.preset===k?C.accent:C.border}`,background:form.preset===k?"rgba(14,165,233,0.12)":C.surface2,color:form.preset===k?C.accent:C.muted,cursor:"pointer",fontSize:11}}>{k}</button>
+        ))}
+      </div></F>}
+      <div style={{display:"flex",flexWrap:"wrap",gap:"0 12px"}}>
+        <F label="Account Name" half><input style={S.input} value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="e.g. Linux Web Server"/></F>
+        <F label="Hostname / IP" half><input style={S.input} value={form.hostname} onChange={e=>setForm(f=>({...f,hostname:e.target.value}))} placeholder="192.168.1.20"/></F>
+        <F label="Username" half><input style={S.input} value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))} placeholder="root"/></F>
+        <F label="OS" half><select style={S.input} value={form.os} onChange={e=>setForm(f=>({...f,os:e.target.value}))}><option value="linux">Linux</option><option value="windows">Windows</option></select></F>
+        <F label="Port" half><input style={S.input} type="number" value={form.port} onChange={e=>setForm(f=>({...f,port:Number(e.target.value)}))}/></F>
+        <F label="Password Length" half><select style={S.input} value={form.password_length} onChange={e=>setForm(f=>({...f,password_length:Number(e.target.value)}))}>
+          <option value={8}>8 characters</option><option value={15}>15 characters</option><option value={20}>20 characters</option>
+        </select></F>
+      </div>
+      <F label="Description"><input style={S.input} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="Optional notes"/></F>
+      {isAdd&&<F label="Initial Password (leave blank to auto-generate)"><input style={S.input} value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))} placeholder={`Auto-generates ${form.password_length}-char password`}/></F>}
+
+      {/* Disable automatic management */}
+      <div style={{background:C.surface2,borderRadius:7,padding:"12px 14px",marginBottom:14}}>
+        <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",userSelect:"none"}}>
+          <input type="checkbox" checked={!form.auto_management} onChange={e=>setForm(f=>({...f,auto_management:!e.target.checked}))}/>
+          <span style={{fontSize:12,color:C.text}}>Disable automatic management for this account</span>
+        </label>
+        {!form.auto_management&&<div style={{marginTop:10}}>
+          <label style={S.label}>Reason</label>
+          <input style={S.input} value={form.disable_reason} onChange={e=>setForm(f=>({...f,disable_reason:e.target.value}))} placeholder="e.g. Service account — manual rotation only"/>
+        </div>}
+      </div>
+
+      {err&&<div style={{color:C.danger,fontSize:12,marginBottom:12}}>⚠ {err}</div>}
+      <div style={{display:"flex",gap:8}}>
+        <Btn v="ghost" onClick={onClose}>Cancel</Btn>
+        <button style={{...S.btn("primary"),flex:1,opacity:loading?0.7:1}} onClick={save} disabled={loading}>{loading?"Saving...":isAdd?"Add Account":"Save Changes"}</button>
+      </div>
+    </div>
+  </div>;
+}
+
+// ── ACCOUNT VAULT PAGE ────────────────────────────────────────────────────────
+function AccountsPage({cart,setCart,isReadOnly,onOpenAccount}){
+  const [accounts,setAccounts]=useState([]);const [showAdd,setShowAdd]=useState(false);const [deleteAcc,setDeleteAcc]=useState(null);const [search,setSearch]=useState("");const [loading,setLoading]=useState(true);
+  const [bulkAction,setBulkAction]=useState(null);const [bulkLoading,setBulkLoading]=useState(false);const [bulkResults,setBulkResults]=useState(null);
+
   async function load(){setLoading(true);try{const d=await api("GET","/accounts");setAccounts(d);}catch(e){}finally{setLoading(false);}}
   useEffect(()=>{load();},[]);
-  async function saveAccount(form,isEdit){
-    if(isEdit){await api("PUT",`/accounts/${editAcc.id}`,form);}else{await api("POST","/accounts",form);}
-    setShowAdd(false);setEditAcc(null);load();
-  }
+
+  async function addAccount(form){await api("POST","/accounts",form);setShowAdd(false);load();}
   async function deleteAccount(acc){await api("DELETE",`/accounts/${acc.id}`);setCart(p=>p.filter(id=>id!==acc.id));setDeleteAcc(null);load();}
-  async function rotateOne(acc){
-    setRotating(r=>({...r,[acc.id]:true}));
-    try{await api("POST",`/accounts/${acc.id}/rotate`);load();}
-    catch(e){alert("Rotation failed: "+e.message);}
-    finally{setRotating(r=>({...r,[acc.id]:false}));}
+
+  async function doBulkVerify(){
+    setBulkLoading(true);setBulkResults(null);
+    try{const d=await api("POST","/accounts/bulk/verify",{account_ids:cart});setBulkResults(d);load();}
+    catch(e){alert(e.message);}finally{setBulkLoading(false);}
   }
+  async function doBulkChangePass(){
+    setBulkLoading(true);setBulkResults(null);
+    const results=[];
+    for(const aid of cart){
+      try{const d=await api("POST",`/accounts/${aid}/rotate`);results.push({id:aid,success:d.success,error:d.error});}
+      catch(e){results.push({id:aid,success:false,error:e.message});}
+    }
+    setBulkResults(results.map(r=>({...r,name:accounts.find(a=>a.id===r.id)?.name||r.id})));
+    setBulkLoading(false);load();
+  }
+
   const filtered=accounts.filter(a=>a.name.toLowerCase().includes(search.toLowerCase())||a.hostname.includes(search)||a.username.toLowerCase().includes(search.toLowerCase()));
   const toggleCart=id=>setCart(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+  const allSelected=filtered.length>0&&filtered.every(a=>cart.includes(a.id));
+  const toggleAll=()=>allSelected?setCart(p=>p.filter(id=>!filtered.find(a=>a.id===id))):setCart(p=>[...new Set([...p,...filtered.map(a=>a.id)])]);
+
+  const statusBadge=acc=>{if(!acc.auto_management)return "disabled";return acc.status==="active"?"success":acc.status==="error"?"danger":"warning";};
+  const statusLabel=acc=>{if(!acc.auto_management)return "Mgmt Disabled";return acc.status;};
   const osIcon=os=>os==="windows"?"🪟":"🐧";
+
   return(
     <div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
-        <div><div style={{fontSize:20,fontWeight:600}}>Account Vault</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>{accounts.length} accounts · {cart.length} in session cart</div></div>
-        <div style={{display:"flex",gap:10}}>
-          <input style={{...S.input,width:200}} placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)}/>
-          {!isReadOnly&&<button style={S.btn("primary")} onClick={()=>setShowAdd(true)}>+ Add Account</button>}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+        <div><div style={{fontSize:18,fontWeight:700}}>Account Vault</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>{accounts.length} accounts</div></div>
+        <div style={{display:"flex",gap:8}}>
+          <input style={{...S.input,width:190}} placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)}/>
+          {!isReadOnly&&<Btn v="primary" onClick={()=>setShowAdd(true)}>+ Add Account</Btn>}
         </div>
       </div>
 
-      {isReadOnly&&<div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:8,padding:"10px 16px",marginBottom:16,fontSize:12,color:C.warning}}>
-        👁 Read-only access — you can view accounts and retrieve credentials (with MFA) but cannot add, edit, delete or rotate.
-      </div>}
+      {isReadOnly&&<div style={{background:"rgba(245,158,11,0.06)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:7,padding:"8px 14px",marginBottom:12,fontSize:12,color:C.warning}}>👁 Read-only — you can view and retrieve credentials but cannot add, edit, delete or rotate.</div>}
 
-      {cart.length>0&&<div style={{background:"rgba(14,165,233,0.06)",border:"1px solid rgba(14,165,233,0.2)",borderRadius:8,padding:"10px 16px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <span style={{fontSize:12,color:C.accent}}>🛒 {cart.length} account{cart.length>1?"s":""} in session cart (cleared on logout)</span>
-        <button style={{...S.btn("ghost"),padding:"3px 10px",fontSize:11}} onClick={()=>setCart([])}>Clear</button>
+      {/* Cart action bar */}
+      {cart.length>0&&<div style={{background:"rgba(14,165,233,0.06)",border:"1px solid rgba(14,165,233,0.2)",borderRadius:7,padding:"10px 14px",marginBottom:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+          <span style={{fontSize:12,color:C.accent,fontWeight:500}}>🛒 {cart.length} selected</span>
+          <div style={{display:"flex",gap:6,marginLeft:8}}>
+            {!isReadOnly&&<Btn v="ghost" sz="sm" onClick={()=>setShowAdd(false)||cart.forEach(id=>{const a=accounts.find(x=>x.id===id);if(a)onOpenAccount(a);})} style={{background:C.surface2,color:C.text}}>✏️ Edit Selected</Btn>}
+            {!isReadOnly&&<Btn v="default" sz="sm" onClick={doBulkVerify} disabled={bulkLoading} style={{background:C.surface2,color:C.text}}>✓ Verify All</Btn>}
+            {!isReadOnly&&<Btn v="warning" sz="sm" onClick={doBulkChangePass} disabled={bulkLoading}>🔄 Change All Passwords</Btn>}
+            <Btn v="ghost" sz="sm" onClick={load}>↻ Refresh</Btn>
+            <Btn v="ghost" sz="sm" onClick={()=>setCart([])} style={{color:C.dim}}>✕ Clear</Btn>
+          </div>
+          {bulkLoading&&<span style={{fontSize:11,color:C.muted}}>⟳ Processing...</span>}
+        </div>
+        {bulkResults&&<div style={{marginTop:10,display:"flex",flexWrap:"wrap",gap:6}}>
+          {bulkResults.map((r,i)=><span key={i} style={{...S.badge(r.success?"success":"danger"),fontSize:11}}>{r.name}: {r.success?"OK":r.error||"Failed"}</span>)}
+        </div>}
       </div>}
 
       <div style={{...S.card,padding:0,overflow:"hidden"}}>
-        {loading?<div style={{padding:40,textAlign:"center",color:C.dim}}>Loading accounts...</div>:
+        {loading?<div style={{padding:36,textAlign:"center",color:C.dim}}>Loading...</div>:
         <table style={{width:"100%",borderCollapse:"collapse"}}>
           <thead><tr>
-            <th style={S.th}></th>
-            <th style={S.th}>Account</th>
-            <th style={S.th}>Host</th>
+            <th style={{...S.th,width:36}}><input type="checkbox" checked={allSelected} onChange={toggleAll}/></th>
+            <th style={S.th}>Account Name</th>
+            <th style={S.th}>Address</th>
+            <th style={S.th}>Username</th>
             <th style={S.th}>OS</th>
             <th style={S.th}>Status</th>
-            <th style={S.th}>Last Rotated</th>
-            <th style={S.th}>Actions</th>
+            <th style={S.th}>Last Verified</th>
+            <th style={S.th}>Last Changed</th>
+            {!isReadOnly&&<th style={S.th}>Actions</th>}
           </tr></thead>
           <tbody>
-            {filtered.length===0&&<tr><td colSpan={7} style={{...S.td,textAlign:"center",color:C.dim,padding:40}}>{accounts.length===0?"No accounts. Click '+ Add Account' to get started.":"No results."}</td></tr>}
+            {filtered.length===0&&<tr><td colSpan={9} style={{...S.td,textAlign:"center",color:C.dim,padding:36}}>{accounts.length===0?"No accounts. Click '+ Add Account' to start.":"No results."}</td></tr>}
             {filtered.map(acc=>(
-              <tr key={acc.id} style={{background:cart.includes(acc.id)?"rgba(14,165,233,0.04)":"transparent"}}>
-                <td style={{...S.td,width:40}}><input type="checkbox" checked={cart.includes(acc.id)} onChange={()=>toggleCart(acc.id)} style={{cursor:"pointer",accentColor:C.accent}}/></td>
-                <td style={S.td}><div style={{fontWeight:500}}>{acc.name}</div><div style={{fontSize:11,color:C.muted}}>{acc.username}</div></td>
+              <tr key={acc.id} style={{background:cart.includes(acc.id)?"rgba(14,165,233,0.04)":"transparent",cursor:"pointer"}} onClick={e=>{if(e.target.type==="checkbox"||e.target.closest("button"))return;onOpenAccount(acc);}}>
+                <td style={{...S.td,width:36}} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={cart.includes(acc.id)} onChange={()=>toggleCart(acc.id)}/></td>
+                <td style={S.td}><div style={{fontWeight:500,color:C.accent}}>{acc.name}</div></td>
                 <td style={{...S.td,color:C.muted}}>{acc.hostname}:{acc.port}</td>
+                <td style={{...S.td,color:C.muted}}>{acc.username}</td>
                 <td style={S.td}>{osIcon(acc.os)} {acc.os}</td>
-                <td style={S.td}><span style={S.badge(acc.status==="active"?"success":acc.status==="error"?"danger":"warning")}>{acc.status}</span></td>
+                <td style={S.td}><span style={S.badge(statusBadge(acc))}>{statusLabel(acc)}</span></td>
+                <td style={{...S.td,fontSize:11,color:C.dim}}>{acc.last_verified?new Date(acc.last_verified).toLocaleString():"Never"}</td>
                 <td style={{...S.td,fontSize:11,color:C.dim}}>{acc.last_rotated?new Date(acc.last_rotated).toLocaleString():"Never"}</td>
-                <td style={S.td}>
-                  <div style={{display:"flex",gap:5}}>
-                    <button title="Retrieve credential" style={{...S.btn("ghost"),padding:"4px 8px",fontSize:11}} onClick={()=>setRetrieveAcc(acc)}>🔑</button>
-                    {!isReadOnly&&<>
-                      <button title="Rotate now" style={{...S.btn("ghost"),padding:"4px 8px",fontSize:11,opacity:rotating[acc.id]?0.5:1}} onClick={()=>rotateOne(acc)} disabled={!!rotating[acc.id]}>{rotating[acc.id]?"⟳":"🔄"}</button>
-                      <button title="Edit" style={{...S.btn("ghost"),padding:"4px 8px",fontSize:11}} onClick={()=>setEditAcc(acc)}>✏️</button>
-                      <button title="Delete" style={{...S.btn("ghost"),padding:"4px 8px",fontSize:11,color:C.danger}} onClick={()=>setDeleteAcc(acc)}>🗑</button>
-                    </>}
-                  </div>
-                </td>
+                {!isReadOnly&&<td style={S.td} onClick={e=>e.stopPropagation()}>
+                  <Btn v="ghost" sz="sm" onClick={()=>setDeleteAcc(acc)} style={{color:C.danger}}>🗑</Btn>
+                </td>}
               </tr>
             ))}
           </tbody>
         </table>}
       </div>
-      {(showAdd||editAcc)&&<AccountModal account={editAcc} onSave={saveAccount} onClose={()=>{setShowAdd(false);setEditAcc(null);}}/>}
-      {retrieveAcc&&<RetrieveModal account={retrieveAcc} onClose={()=>setRetrieveAcc(null)}/>}
-      {deleteAcc&&<div style={S.modal} onClick={e=>e.target===e.currentTarget&&setDeleteAcc(null)}>
-        <div style={{...S.modalBox,width:380}}>
-          <div style={{fontSize:15,fontWeight:600,marginBottom:12}}>Delete Account</div>
-          <div style={{fontSize:13,color:C.muted,marginBottom:24}}>Delete <strong style={{color:C.text}}>{deleteAcc.name}</strong>? The stored credential will be permanently removed from the vault.</div>
-          <div style={{display:"flex",gap:10}}><button style={S.btn("ghost")} onClick={()=>setDeleteAcc(null)}>Cancel</button><button style={{...S.btn("danger"),flex:1}} onClick={()=>deleteAccount(deleteAcc)}>Delete</button></div>
-        </div>
-      </div>}
+
+      {showAdd&&<AccountEditModal account={null} onSave={addAccount} onClose={()=>setShowAdd(false)}/>}
+      {deleteAcc&&<Confirm title="Delete Account" msg={`Delete "${deleteAcc.name}"? The stored credential will be permanently removed from the vault.`} onConfirm={()=>deleteAccount(deleteAcc)} onCancel={()=>setDeleteAcc(null)}/>}
     </div>
   );
 }
 
-// LOGS PAGE
-function LogsPage(){
-  const [logs,setLogs]=useState([]);const [filter,setFilter]=useState("all");const [loading,setLoading]=useState(true);
-  async function load(){setLoading(true);try{const d=await api("GET",`/logs${filter!=="all"?"?type="+filter:""}`);setLogs(d);}catch(e){}finally{setLoading(false);}}
-  useEffect(()=>{load();},[filter]);
-  const typeColor={success:C.success,error:C.danger,warning:C.warning,info:C.accent};
-  const counts={verify:logs.filter(l=>l.code?.includes("VERIFY")).length,rotate:logs.filter(l=>l.code?.includes("ROT_")).length,postverify:logs.filter(l=>l.code?.includes("POSTVERIFY")).length,error:logs.filter(l=>l.type==="error").length};
-  return(
-    <div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
-        <div><div style={{fontSize:20,fontWeight:600}}>Audit Logs</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>{logs.length} entries</div></div>
-        <div style={{display:"flex",gap:8}}>
-          {["all","success","error","warning","info"].map(f=>(
-            <button key={f} onClick={()=>setFilter(f)} style={{...S.btn("ghost"),padding:"5px 12px",color:filter===f?C.accent:C.muted,borderColor:filter===f?C.accent:C.border}}>{f}</button>
-          ))}
-        </div>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:24}}>
-        {[["Daily Verifications",counts.verify,C.accent],["Password Changes",counts.rotate,C.success],["Post-Verifications",counts.postverify,C.warning],["Errors",counts.error,C.danger]].map(([l,n,color])=>(
-          <div key={l} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"14px 18px"}}>
-            <div style={{fontSize:11,color:C.muted,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.08em"}}>{l}</div>
-            <div style={{fontSize:24,fontWeight:700,color}}>{n}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{...S.card,padding:0,overflow:"hidden"}}>
-        {loading?<div style={{padding:40,textAlign:"center",color:C.dim}}>Loading logs...</div>:
-        <table style={{width:"100%",borderCollapse:"collapse"}}>
-          <thead><tr><th style={S.th}>Timestamp</th><th style={S.th}>Type</th><th style={S.th}>Account</th><th style={S.th}>Event</th><th style={S.th}>Code</th></tr></thead>
-          <tbody>
-            {logs.length===0&&<tr><td colSpan={5} style={{...S.td,textAlign:"center",color:C.dim,padding:40}}>No log entries.</td></tr>}
-            {logs.map((l,i)=>(
-              <tr key={i}>
-                <td style={{...S.td,fontSize:11,color:C.dim,whiteSpace:"nowrap"}}>{new Date(l.timestamp).toLocaleString()}</td>
-                <td style={S.td}><span style={{fontSize:11,color:typeColor[l.type]||C.muted}}>{l.type?.toUpperCase()}</span></td>
-                <td style={{...S.td,color:C.muted}}>{l.account||"—"}</td>
-                <td style={{...S.td,color:C.text}}>{l.message}</td>
-                <td style={{...S.td,fontSize:11,fontFamily:"monospace",color:C.dim}}>{l.code||"—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>}
-      </div>
-    </div>
-  );
-}
-
-// SCHEDULER PAGE
-function SchedulerPage({isReadOnly}){
-  const [status,setStatus]=useState({running:false,interval_hours:24,last_run:null});
-  const [intervalH,setIntervalH]=useState(24);const [loading,setLoading]=useState(false);const [rotateAll,setRotateAll]=useState(false);const [results,setResults]=useState(null);
-  async function loadStatus(){try{const d=await api("GET","/scheduler/status");setStatus(d);setIntervalH(d.interval_hours);}catch(e){}}
-  useEffect(()=>{loadStatus();},[]);
-  async function start(){setLoading(true);try{const d=await api("POST","/scheduler/start",{interval_hours:intervalH});setStatus(d);}catch(e){}finally{setLoading(false);}}
-  async function stop(){setLoading(true);try{const d=await api("POST","/scheduler/stop");setStatus(d);}catch(e){}finally{setLoading(false);}}
-  async function runNow(){setRotateAll(true);setResults(null);try{const d=await api("POST","/rotate/all");setResults(d);}catch(e){}finally{setRotateAll(false);loadStatus();}}
-  return(
-    <div>
-      <div style={{fontSize:20,fontWeight:600,marginBottom:6}}>Rotation Scheduler</div>
-      <div style={{fontSize:12,color:C.muted,marginBottom:24}}>Automated password rotation: daily verify → password change → post-rotation validation</div>
-      {isReadOnly&&<div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:8,padding:"10px 16px",marginBottom:16,fontSize:12,color:C.warning}}>👁 Read-only access — scheduler controls are disabled.</div>}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:24}}>
-        <div style={S.card}>
-          <div style={{fontSize:13,fontWeight:600,marginBottom:16}}>Schedule Configuration</div>
-          <F label="Rotation Interval">
-            <select style={S.input} value={intervalH} onChange={e=>setIntervalH(Number(e.target.value))} disabled={isReadOnly}>
-              <option value={1}>Every 1 hour</option><option value={12}>Every 12 hours</option><option value={24}>Every 24 hours (daily)</option><option value={168}>Every week</option>
-            </select>
-          </F>
-          {!isReadOnly&&<div style={{display:"flex",gap:10,marginTop:8}}>
-            <button style={{...S.btn(status.running?"danger":"success"),flex:1,opacity:loading?0.7:1}} onClick={status.running?stop:start} disabled={loading}>{status.running?"⏹ Stop Scheduler":"▶ Start Scheduler"}</button>
-          </div>}
-          <div style={{marginTop:12,fontSize:11,color:C.dim}}>Status: <span style={{color:status.running?C.success:C.muted}}>{status.running?"● Running":"○ Stopped"}</span>{status.last_run&&<span style={{marginLeft:12}}>Last run: {new Date(status.last_run).toLocaleString()}</span>}</div>
-        </div>
-        <div style={S.card}>
-          <div style={{fontSize:13,fontWeight:600,marginBottom:16}}>Manual Rotation</div>
-          <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Trigger a full rotation cycle immediately for all accounts.</div>
-          {!isReadOnly&&<button style={{...S.btn(rotateAll?"ghost":"primary"),width:"100%",padding:10,opacity:rotateAll?0.7:1}} onClick={runNow} disabled={rotateAll}>{rotateAll?"⟳ Rotating...":"▶ Run Full Rotation Now"}</button>}
-        </div>
-      </div>
-      {results&&<div style={S.card}>
-        <div style={{fontSize:13,fontWeight:600,marginBottom:14}}>Results</div>
-        <div style={{display:"flex",gap:20,marginBottom:14}}><span style={{color:C.success}}>✓ Success: {results.success}</span><span style={{color:C.danger}}>✗ Failed: {results.failed}</span></div>
-        {results.details?.map((d,i)=>(
-          <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"7px 12px",background:C.surface2,borderRadius:6,marginBottom:6}}>
-            <span style={{color:d.success?C.success:C.danger}}>{d.success?"✓":"✗"}</span>
-            <span style={{flex:1,color:C.muted}}>{d.name}</span>
-            <span style={{fontSize:11,color:d.success?C.success:C.danger}}>{d.success?"Rotated":"Failed"}</span>
-          </div>
-        ))}
-      </div>}
-    </div>
-  );
-}
-
-// USERS PAGE
+// ── VAULT USERS PAGE ──────────────────────────────────────────────────────────
 function UsersPage({currentUser,currentRole}){
-  const [users,setUsers]=useState([]);const [showAdd,setShowAdd]=useState(false);const [step,setStep]=useState(1);const [form,setForm]=useState({username:"",password:"",role:"readonly"});const [qrData,setQrData]=useState(null);const [err,setErr]=useState("");const [loading,setLoading]=useState(false);const [deleteUser,setDeleteUser]=useState(null);
+  const [users,setUsers]=useState([]);const [showAdd,setShowAdd]=useState(false);const [step,setStep]=useState(1);
+  const [form,setForm]=useState({username:"",password:"",role:"readonly"});const [qrData,setQrData]=useState(null);
+  const [err,setErr]=useState("");const [loading,setLoading]=useState(false);const [deleteUser,setDeleteUser]=useState(null);
+  const [showChangePass,setShowChangePass]=useState(false);const [cpForm,setCpForm]=useState({old_password:"",new_password:"",confirm:"",totp_code:""});const [cpErr,setCpErr]=useState("");const [cpLoading,setCpLoading]=useState(false);
+
   async function load(){try{const d=await api("GET","/auth/users");setUsers(d);}catch(e){}}
   useEffect(()=>{load();},[]);
+
   async function create(){
     if(!form.username||form.password.length<8){setErr("Username required, password 8+ chars.");return;}
     setLoading(true);setErr("");
@@ -433,66 +740,97 @@ function UsersPage({currentUser,currentRole}){
     try{await api("DELETE",`/auth/users/${u.username}`);setDeleteUser(null);load();}
     catch(e){alert(e.message);}
   }
+  async function doChangePass(){
+    if(cpForm.new_password!==cpForm.confirm){setCpErr("Passwords don't match");return;}
+    if(cpForm.new_password.length<8){setCpErr("Password must be 8+ chars");return;}
+    if(cpForm.totp_code.length!==6){setCpErr("Enter 6-digit MFA code");return;}
+    setCpLoading(true);setCpErr("");
+    try{await api("POST","/auth/change_password",{old_password:cpForm.old_password,new_password:cpForm.new_password,totp_code:cpForm.totp_code});setShowChangePass(false);setCpForm({old_password:"",new_password:"",confirm:"",totp_code:""});load();}
+    catch(e){setCpErr(e.message);}finally{setCpLoading(false);}
+  }
   function done(){setShowAdd(false);setStep(1);setForm({username:"",password:"",role:"readonly"});setQrData(null);load();}
+
   const roleColor=r=>r==="admin"?"success":"purple";
   const roleLabel=r=>r==="admin"?"Admin":"Read Only";
+  const now=new Date();
+
   return(
     <div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
-        <div><div style={{fontSize:20,fontWeight:600}}>Vault Users</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>{users.length} account{users.length!==1?"s":""}</div></div>
-        {currentRole==="admin"&&<button style={S.btn("primary")} onClick={()=>{setShowAdd(true);setStep(1);setQrData(null);setErr("");}}>+ Create User</button>}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
+        <div><div style={{fontSize:18,fontWeight:700}}>Vault Users</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>{users.length} account{users.length!==1?"s":""}</div></div>
+        <div style={{display:"flex",gap:8}}>
+          <Btn v="ghost" onClick={()=>setShowChangePass(true)}>🔑 Change My Password</Btn>
+          {currentRole==="admin"&&<Btn v="primary" onClick={()=>{setShowAdd(true);setStep(1);setQrData(null);setErr("");}}>+ Create User</Btn>}
+        </div>
       </div>
 
-      {/* Role explanation */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:20}}>
-        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"14px 18px"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><span style={S.badge("success")}>Admin</span></div>
-          <div style={{fontSize:12,color:C.muted,lineHeight:1.6}}>Full access — can add, edit, delete, and rotate vault accounts. Can manage users. Can retrieve credentials with MFA.</div>
-        </div>
-        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"14px 18px"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}><span style={S.badge("purple")}>Read Only</span></div>
-          <div style={{fontSize:12,color:C.muted,lineHeight:1.6}}>Restricted access — can view accounts and retrieve credentials (MFA required) but cannot add, edit, delete or rotate accounts.</div>
-        </div>
+      {/* Role legend */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+        {[["Admin","Full access — manage accounts, rotate passwords, manage users.","success"],["Read Only","View accounts, retrieve credentials (MFA required). Cannot add, edit, delete or rotate.","purple"]].map(([r,d,c])=>(
+          <div key={r} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"12px 16px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><span style={S.badge(c)}>{r}</span></div>
+            <div style={{fontSize:12,color:C.muted}}>{d}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 30-day policy notice */}
+      <div style={{background:"rgba(245,158,11,0.06)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:7,padding:"10px 14px",marginBottom:14,fontSize:12,color:C.warning}}>
+        🔒 <strong>Password Policy:</strong> Vault user passwords must be changed every 30 days. Users will be prompted on login when expired.
       </div>
 
       <div style={{...S.card,padding:0,overflow:"hidden"}}>
         <table style={{width:"100%",borderCollapse:"collapse"}}>
           <thead><tr>
-            <th style={S.th}>User</th>
-            <th style={S.th}>Role</th>
-            <th style={S.th}>MFA</th>
-            <th style={S.th}>Created</th>
+            <th style={S.th}>User</th><th style={S.th}>Role</th><th style={S.th}>MFA</th>
+            <th style={S.th}>Password Age</th><th style={S.th}>Status</th>
             {currentRole==="admin"&&<th style={S.th}>Actions</th>}
           </tr></thead>
           <tbody>
-            {users.map((u,i)=>(
-              <tr key={i}>
+            {users.map((u,i)=>{
+              const changed=u.password_changed_at||u.created_at;
+              const days=changed?Math.floor((now-new Date(changed))/86400000):0;
+              const expired=days>=30;
+              return <tr key={i}>
                 <td style={S.td}>
                   <div style={{display:"flex",alignItems:"center",gap:10}}>
-                    <div style={{width:34,height:34,borderRadius:"50%",background:"rgba(14,165,233,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:C.accent,flexShrink:0}}>{u.username[0].toUpperCase()}</div>
-                    <div>
-                      <div style={{fontWeight:500}}>{u.username}</div>
-                      {u.username===currentUser&&<span style={{...S.badge("success"),fontSize:10}}>you</span>}
-                    </div>
+                    <div style={{width:32,height:32,borderRadius:"50%",background:"rgba(14,165,233,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:C.accent,flexShrink:0}}>{u.username[0].toUpperCase()}</div>
+                    <div><div style={{fontWeight:500}}>{u.username}</div>{u.username===currentUser&&<span style={{...S.badge("success"),fontSize:10}}>you</span>}</div>
                   </div>
                 </td>
                 <td style={S.td}><span style={S.badge(roleColor(u.role))}>{roleLabel(u.role)}</span></td>
                 <td style={S.td}><span style={{fontSize:11,color:C.success}}>✓ Enabled</span></td>
-                <td style={{...S.td,fontSize:11,color:C.dim}}>{new Date(u.created_at).toLocaleDateString()}</td>
-                {currentRole==="admin"&&<td style={S.td}>
-                  {u.username!==currentUser
-                    ?<button style={{...S.btn("ghost"),padding:"4px 10px",fontSize:11,color:C.danger}} onClick={()=>setDeleteUser(u)}>🗑 Delete</button>
-                    :<span style={{fontSize:11,color:C.dim}}>—</span>}
-                </td>}
-              </tr>
-            ))}
+                <td style={S.td}><span style={{fontSize:12,color:expired?C.danger:days>20?C.warning:C.success}}>{days} days ago</span></td>
+                <td style={S.td}>{expired?<span style={S.badge("danger")}>Expired</span>:<span style={S.badge("success")}>Active</span>}</td>
+                {currentRole==="admin"&&<td style={S.td}>{u.username!==currentUser?<Btn v="ghost" sz="sm" onClick={()=>setDeleteUser(u)} style={{color:C.danger}}>🗑 Delete</Btn>:<span style={{fontSize:11,color:C.dim}}>—</span>}</td>}
+              </tr>;
+            })}
           </tbody>
         </table>
       </div>
 
+      {/* Change own password */}
+      {showChangePass&&<div style={S.modal} onClick={e=>e.target===e.currentTarget&&setShowChangePass(false)}>
+        <div style={{...S.modalBox,width:420}}>
+          <div style={{fontSize:14,fontWeight:600,marginBottom:16}}>Change My Vault Password</div>
+          <F label="Current Password"><input style={S.input} type="password" value={cpForm.old_password} onChange={e=>setCpForm(f=>({...f,old_password:e.target.value}))}/></F>
+          <F label="New Password"><input style={S.input} type="password" value={cpForm.new_password} onChange={e=>setCpForm(f=>({...f,new_password:e.target.value}))}/></F>
+          <F label="Confirm New Password"><input style={S.input} type="password" value={cpForm.confirm} onChange={e=>setCpForm(f=>({...f,confirm:e.target.value}))}/></F>
+          <F label="Authenticator Code (MFA required)">
+            <input style={{...S.input,fontSize:18,letterSpacing:"0.25em",textAlign:"center"}} value={cpForm.totp_code} onChange={e=>setCpForm(f=>({...f,totp_code:e.target.value.replace(/\D/g,"").slice(0,6)}))} placeholder="000000" maxLength={6}/>
+          </F>
+          {cpErr&&<div style={{color:C.danger,fontSize:12,marginBottom:10}}>⚠ {cpErr}</div>}
+          <div style={{display:"flex",gap:8}}>
+            <Btn v="ghost" onClick={()=>setShowChangePass(false)}>Cancel</Btn>
+            <button style={{...S.btn("primary"),flex:1,opacity:cpLoading?0.7:1}} onClick={doChangePass} disabled={cpLoading}>{cpLoading?"Changing...":"Change Password"}</button>
+          </div>
+        </div>
+      </div>}
+
+      {/* Create user */}
       {showAdd&&<div style={S.modal} onClick={e=>e.target===e.currentTarget&&done()}>
-        <div style={{...S.modalBox,width:460}}>
-          <div style={{fontSize:15,fontWeight:600,marginBottom:20}}>Create Vault User</div>
+        <div style={{...S.modalBox,width:440}}>
+          <div style={{fontSize:14,fontWeight:600,marginBottom:16}}>Create Vault User</div>
           {step===1?<>
             <F label="Username"><input style={S.input} value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))}/></F>
             <F label="Password"><input style={S.input} type="password" value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))}/></F>
@@ -502,51 +840,75 @@ function UsersPage({currentUser,currentRole}){
                 <option value="readonly">Read Only — view and retrieve only</option>
               </select>
             </F>
-            <div style={{background:C.surface2,borderRadius:6,padding:"10px 14px",fontSize:12,color:C.muted,marginBottom:14}}>
-              {form.role==="admin"
-                ?"Admin can manage all accounts, rotate passwords, and manage users."
-                :"Read-only users can view accounts and retrieve credentials (MFA required) but cannot make any changes."}
-            </div>
-            {err&&<div style={{color:C.danger,fontSize:12,marginBottom:12}}>⚠ {err}</div>}
-            <div style={{display:"flex",gap:10}}>
-              <button style={S.btn("ghost")} onClick={done}>Cancel</button>
-              <button style={{...S.btn("primary"),flex:1,opacity:loading?0.7:1}} onClick={create} disabled={loading}>{loading?"Creating...":"Continue"}</button>
-            </div>
+            <div style={{background:C.surface2,borderRadius:6,padding:"9px 13px",fontSize:12,color:C.muted,marginBottom:12}}>{form.role==="admin"?"Admin can manage all accounts, rotate passwords, and manage users.":"Read-only users can view accounts and retrieve credentials (MFA required) but cannot make changes."}</div>
+            {err&&<div style={{color:C.danger,fontSize:12,marginBottom:10}}>⚠ {err}</div>}
+            <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={done}>Cancel</Btn><button style={{...S.btn("primary"),flex:1,opacity:loading?0.7:1}} onClick={create} disabled={loading}>{loading?"Creating...":"Continue"}</button></div>
           </>:qrData&&<>
-            <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Scan QR with Microsoft Authenticator</div>
-            <div style={{background:C.surface2,borderRadius:8,padding:20,textAlign:"center",marginBottom:16}}>
-              <QRImg value={qrData.otp_uri} size={190}/>
-              <div style={{marginTop:12,fontSize:11,color:C.muted}}>Open Authenticator → Add account → Scan QR</div>
-              <div style={{marginTop:10,background:C.surface,borderRadius:6,padding:"8px 12px",display:"inline-block"}}>
-                <div style={{fontSize:10,color:C.dim,marginBottom:3,textTransform:"uppercase"}}>Manual secret:</div>
-                <div style={{fontSize:12,color:C.accent,letterSpacing:"0.12em",wordBreak:"break-all",fontWeight:600}}>{qrData.totp_secret}</div>
+            <div style={{fontSize:12,color:C.muted,marginBottom:14}}>Scan QR with Microsoft Authenticator</div>
+            <div style={{background:C.surface2,borderRadius:8,padding:18,textAlign:"center",marginBottom:14}}>
+              <QRImg value={qrData.otp_uri} size={180}/>
+              <div style={{marginTop:10,fontSize:11,color:C.muted}}>Open Authenticator → Add account → Scan QR</div>
+              <div style={{marginTop:8,background:C.surface,borderRadius:5,padding:"7px 11px",display:"inline-block"}}>
+                <div style={{fontSize:10,color:C.dim,marginBottom:2,textTransform:"uppercase"}}>Manual secret:</div>
+                <div style={{fontSize:12,color:C.accent,letterSpacing:"0.1em",wordBreak:"break-all",fontWeight:600}}>{qrData.totp_secret}</div>
               </div>
             </div>
-            <div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:6,padding:"10px 14px",fontSize:12,color:C.warning,marginBottom:14}}>
-              ⚠ User must scan before closing. Will NOT be shown again.
-            </div>
-            <button style={{...S.btn("success"),width:"100%"}} onClick={done}>✓ Confirm & Create User</button>
+            <div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:6,padding:"9px 13px",fontSize:12,color:C.warning,marginBottom:14}}>⚠ User must scan before closing. Will NOT be shown again.</div>
+            <Btn v="success" onClick={done} style={{width:"100%"}}>✓ Confirm & Create User</Btn>
           </>}
         </div>
       </div>}
 
-      {deleteUser&&<div style={S.modal} onClick={e=>e.target===e.currentTarget&&setDeleteUser(null)}>
-        <div style={{...S.modalBox,width:380}}>
-          <div style={{fontSize:15,fontWeight:600,marginBottom:12}}>Delete User</div>
-          <div style={{fontSize:13,color:C.muted,marginBottom:24}}>Delete <strong style={{color:C.text}}>{deleteUser.username}</strong>? They will immediately lose all vault access.</div>
-          <div style={{display:"flex",gap:10}}>
-            <button style={S.btn("ghost")} onClick={()=>setDeleteUser(null)}>Cancel</button>
-            <button style={{...S.btn("danger"),flex:1}} onClick={()=>handleDelete(deleteUser)}>Delete User</button>
-          </div>
-        </div>
-      </div>}
+      {deleteUser&&<Confirm title="Delete User" msg={`Delete user "${deleteUser.username}"? They will immediately lose all vault access.`} onConfirm={()=>handleDelete(deleteUser)} onCancel={()=>setDeleteUser(null)}/>}
     </div>
   );
 }
 
-// APP SHELL
+// ── PASSWORD EXPIRED PROMPT ───────────────────────────────────────────────────
+function PasswordExpiredModal({onClose,onChanged}){
+  const [form,setForm]=useState({old_password:"",new_password:"",confirm:"",totp_code:""});
+  const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
+  async function submit(){
+    if(form.new_password!==form.confirm){setErr("Passwords don't match");return;}
+    if(form.new_password.length<8){setErr("Password must be 8+ chars");return;}
+    if(form.totp_code.length!==6){setErr("Enter 6-digit MFA code");return;}
+    setLoading(true);setErr("");
+    try{await api("POST","/auth/change_password",{old_password:form.old_password,new_password:form.new_password,totp_code:form.totp_code});onChanged();}
+    catch(e){setErr(e.message);}finally{setLoading(false);}
+  }
+  return <div style={{...S.modal,zIndex:2000}}>
+    <div style={{...S.modalBox,width:420}}>
+      <div style={{textAlign:"center",marginBottom:16}}>
+        <div style={{fontSize:28,marginBottom:6}}>⚠️</div>
+        <div style={{fontSize:14,fontWeight:600,color:C.warning}}>Password Expired</div>
+        <div style={{fontSize:12,color:C.muted,marginTop:4}}>Your vault password is over 30 days old. Please set a new one to continue.</div>
+      </div>
+      <F label="Current Password"><input style={S.input} type="password" value={form.old_password} onChange={e=>setForm(f=>({...f,old_password:e.target.value}))}/></F>
+      <F label="New Password"><input style={S.input} type="password" value={form.new_password} onChange={e=>setForm(f=>({...f,new_password:e.target.value}))}/></F>
+      <F label="Confirm New Password"><input style={S.input} type="password" value={form.confirm} onChange={e=>setForm(f=>({...f,confirm:e.target.value}))}/></F>
+      <F label="Authenticator Code">
+        <input style={{...S.input,fontSize:18,letterSpacing:"0.25em",textAlign:"center"}} value={form.totp_code} onChange={e=>setForm(f=>({...f,totp_code:e.target.value.replace(/\D/g,"").slice(0,6)}))} placeholder="000000" maxLength={6}/>
+      </F>
+      {err&&<div style={{color:C.danger,fontSize:12,marginBottom:10}}>⚠ {err}</div>}
+      <div style={{display:"flex",gap:8}}>
+        <Btn v="ghost" onClick={onClose}>Skip for now</Btn>
+        <button style={{...S.btn("warning"),flex:1,opacity:loading?0.7:1}} onClick={submit} disabled={loading}>{loading?"Changing...":"Change Password"}</button>
+      </div>
+    </div>
+  </div>;
+}
+
+// ── APP SHELL ─────────────────────────────────────────────────────────────────
 function App(){
-  const [page,setPage]=useState("accounts");const [session,setSession]=useState(null);const [hasUsers,setHasUsers]=useState(true);const [showRegister,setShowRegister]=useState(false);const [cart,setCart]=useState([]);const [checking,setChecking]=useState(true);
+  const [page,setPage]=useState("accounts");
+  const [openAccount,setOpenAccount]=useState(null);
+  const [session,setSession]=useState(null);
+  const [hasUsers,setHasUsers]=useState(true);
+  const [showRegister,setShowRegister]=useState(false);
+  const [cart,setCart]=useState([]);
+  const [checking,setChecking]=useState(true);
+  const [showExpired,setShowExpired]=useState(false);
+
   useEffect(()=>{
     async function init(){
       try{
@@ -554,7 +916,8 @@ function App(){
         setHasUsers(s.has_users);
         if(!s.has_users){setShowRegister(true);setChecking(false);return;}
         const t=localStorage.getItem("pam_token");
-        if(t){_token=t;_role=localStorage.getItem("pam_role")||"";
+        if(t){
+          _token=t;_role=localStorage.getItem("pam_role")||"";
           try{await api("GET","/accounts");const u=localStorage.getItem("pam_user");if(u)setSession({username:u,role:_role});}
           catch(e){localStorage.removeItem("pam_token");localStorage.removeItem("pam_user");localStorage.removeItem("pam_role");}
         }
@@ -564,48 +927,161 @@ function App(){
     init();
   },[]);
 
-  function handleLogin(d){_token=d.token;_role=d.role;localStorage.setItem("pam_token",d.token);localStorage.setItem("pam_user",d.username);localStorage.setItem("pam_role",d.role);setSession(d);}
-  async function handleLogout(){try{await api("POST","/auth/logout");}catch(e){}_token="";_role="";localStorage.removeItem("pam_token");localStorage.removeItem("pam_user");localStorage.removeItem("pam_role");setSession(null);setCart([]);}
+  function handleLogin(d){
+    _token=d.token;_role=d.role;
+    localStorage.setItem("pam_token",d.token);localStorage.setItem("pam_user",d.username);localStorage.setItem("pam_role",d.role);
+    setSession(d);
+    if(d.password_expired) setShowExpired(true);
+  }
+  async function handleLogout(){
+    try{await api("POST","/auth/logout");}catch(e){}
+    _token="";_role="";
+    localStorage.removeItem("pam_token");localStorage.removeItem("pam_user");localStorage.removeItem("pam_role");
+    setSession(null);setCart([]);setOpenAccount(null);
+  }
   function handleRegistered(){api("GET","/auth/status").then(d=>setHasUsers(d.has_users));setShowRegister(false);}
 
-  if(checking)return <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.muted}}>Loading...</div>;
-  if(showRegister&&!session)return <RegisterPage onBack={()=>setShowRegister(false)} onDone={handleRegistered}/>;
-  if(!session)return <LoginPage onLogin={handleLogin} hasUsers={hasUsers} onRegister={()=>setShowRegister(true)}/>;
+  if(checking) return <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.muted}}>Loading...</div>;
+  if(showRegister&&!session) return <RegisterPage onBack={()=>setShowRegister(false)} onDone={handleRegistered}/>;
+  if(!session) return <LoginPage onLogin={handleLogin} hasUsers={hasUsers} onRegister={()=>setShowRegister(true)}/>;
 
   const isReadOnly=session.role==="readonly";
-  const navItems=[{key:"accounts",label:"Account Vault",icon:"🔒"},{key:"scheduler",label:"Scheduler",icon:"⏱"},{key:"logs",label:"Audit Logs",icon:"📋"},{key:"users",label:"Vault Users",icon:"👤"}];
+  const navItems=[
+    {key:"accounts",label:"Account Vault",icon:"🔒"},
+    {key:"cart",label:`Cart${cart.length>0?" ("+cart.length+")":""}`,icon:"🛒"},
+    ...(isReadOnly?[]:[{key:"users",label:"Vault Users",icon:"👤"}]),
+  ];
 
   return(
     <div style={{display:"flex",minHeight:"100vh"}}>
-      <div style={{width:220,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",position:"fixed",top:0,left:0,bottom:0}}>
-        <div style={{padding:"22px 20px 14px",borderBottom:`1px solid ${C.border}`}}>
-          <div style={{fontSize:16,fontWeight:700,color:C.accent}}>⬡ PAM Vault</div>
-          <div style={{fontSize:10,color:C.dim,marginTop:3}}>Privileged Access Mgmt</div>
+      {/* Sidebar */}
+      <div style={{width:210,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",position:"fixed",top:0,left:0,bottom:0,zIndex:100}}>
+        <div style={{padding:"18px 16px 12px",borderBottom:`1px solid ${C.border}`}}>
+          <div style={{fontSize:15,fontWeight:700,color:C.accent}}>⬡ PAM Vault</div>
+          <div style={{fontSize:10,color:C.dim,marginTop:2}}>Privileged Access Mgmt</div>
         </div>
-        <div style={{flex:1,paddingTop:8}}>
+        <div style={{flex:1,paddingTop:6}}>
           {navItems.map(item=>(
-            <div key={item.key} onClick={()=>setPage(item.key)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 20px",cursor:"pointer",color:page===item.key?C.accent:C.muted,background:page===item.key?"rgba(14,165,233,0.08)":"transparent",borderLeft:`2px solid ${page===item.key?C.accent:"transparent"}`,userSelect:"none",transition:"all 0.15s"}}>
+            <div key={item.key} onClick={()=>{setPage(item.key);setOpenAccount(null);}} style={{display:"flex",alignItems:"center",gap:9,padding:"9px 16px",cursor:"pointer",color:(page===item.key&&!openAccount)||openAccount&&item.key==="accounts"?C.accent:C.muted,background:(page===item.key&&!openAccount)?"rgba(14,165,233,0.08)":"transparent",borderLeft:`2px solid ${(page===item.key&&!openAccount)?C.accent:"transparent"}`,userSelect:"none",transition:"all 0.1s",fontSize:12}}>
               <span>{item.icon}</span><span>{item.label}</span>
-              {item.key==="accounts"&&cart.length>0&&<span style={{marginLeft:"auto",background:C.accent,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px"}}>{cart.length}</span>}
             </div>
           ))}
         </div>
-        <div style={{padding:"14px 20px",borderTop:`1px solid ${C.border}`}}>
-          <div style={{fontSize:12,color:C.text,marginBottom:4,fontWeight:500}}>{session.username}</div>
-          <div style={{marginBottom:6}}><span style={S.badge(isReadOnly?"purple":"success")}>{isReadOnly?"Read Only":"Admin"}</span></div>
-          <div style={{fontSize:10,color:C.dim,marginBottom:10}}>🔐 MFA Active</div>
-          <button style={{...S.btn("ghost"),width:"100%",fontSize:11,padding:"6px"}} onClick={handleLogout}>Sign Out</button>
+        <div style={{padding:"12px 16px",borderTop:`1px solid ${C.border}`}}>
+          <div style={{fontSize:12,color:C.text,marginBottom:3,fontWeight:500}}>{session.username}</div>
+          <div style={{marginBottom:5}}><span style={S.badge(isReadOnly?"purple":"success")}>{isReadOnly?"Read Only":"Admin"}</span></div>
+          <div style={{fontSize:10,color:C.dim,marginBottom:8}}>🔐 MFA Active</div>
+          <Btn v="ghost" onClick={handleLogout} style={{width:"100%",fontSize:11,padding:"5px"}}>Sign Out</Btn>
         </div>
       </div>
-      <div style={{marginLeft:220,flex:1,padding:"28px 36px"}}>
-        {page==="accounts"&&<AccountsPage cart={cart} setCart={setCart} isReadOnly={isReadOnly}/>}
-        {page==="scheduler"&&<SchedulerPage isReadOnly={isReadOnly}/>}
-        {page==="logs"&&<LogsPage/>}
-        {page==="users"&&<UsersPage currentUser={session.username} currentRole={session.role}/>}
+
+      {/* Main content */}
+      <div style={{marginLeft:210,flex:1,display:"flex",flexDirection:"column"}}>
+        {/* Top bar */}
+        <div style={{height:48,background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",padding:"0 24px",gap:6,position:"sticky",top:0,zIndex:50}}>
+          <span style={{fontSize:12,color:C.dim}}>Account Vault</span>
+          {openAccount&&<><span style={{color:C.dim,fontSize:12}}>›</span><span style={{fontSize:12,color:C.text}}>{openAccount.name}</span></>}
+          <div style={{flex:1}}/>
+          <span style={{fontSize:11,color:C.dim}}>TP072352 · APU FYP</span>
+        </div>
+
+        <div style={{flex:1,padding:"20px 28px",overflowY:"auto"}}>
+          {page==="accounts"&&!openAccount&&<AccountsPage cart={cart} setCart={setCart} isReadOnly={isReadOnly} onOpenAccount={acc=>{setOpenAccount(acc);setPage("accounts");}}/>}
+          {page==="accounts"&&openAccount&&<AccountDetailPage account={openAccount} onBack={()=>setOpenAccount(null)} isReadOnly={isReadOnly} currentUser={session.username}/>}
+          {page==="cart"&&<CartPage cart={cart} setCart={setCart} isReadOnly={isReadOnly} onOpenAccount={acc=>{setOpenAccount(acc);setPage("accounts");}}/>}
+          {page==="users"&&!isReadOnly&&<UsersPage currentUser={session.username} currentRole={session.role}/>}
+        </div>
+      </div>
+
+      {showExpired&&<PasswordExpiredModal onClose={()=>setShowExpired(false)} onChanged={()=>setShowExpired(false)}/>}
+    </div>
+  );
+}
+
+// ── CART PAGE ─────────────────────────────────────────────────────────────────
+function CartPage({cart,setCart,isReadOnly,onOpenAccount}){
+  const [accounts,setAccounts]=useState([]);const [loading,setLoading]=useState(true);
+  const [bulkLoading,setBulkLoading]=useState(false);const [bulkResults,setBulkResults]=useState(null);
+
+  async function load(){setLoading(true);try{const d=await api("GET","/accounts");setAccounts(d.filter(a=>cart.includes(a.id)));}catch(e){}finally{setLoading(false);}}
+  useEffect(()=>{load();},[cart.length]);
+
+  async function doBulkVerify(){
+    setBulkLoading(true);setBulkResults(null);
+    try{const d=await api("POST","/accounts/bulk/verify",{account_ids:cart});setBulkResults({action:"verify",items:d});}
+    catch(e){alert(e.message);}finally{setBulkLoading(false);load();}
+  }
+  async function doBulkChange(){
+    setBulkLoading(true);setBulkResults(null);
+    const results=[];
+    for(const aid of cart){
+      try{const d=await api("POST",`/accounts/${aid}/rotate`);results.push({id:aid,name:accounts.find(a=>a.id===aid)?.name||aid,success:d.success,error:d.error});}
+      catch(e){results.push({id:aid,name:accounts.find(a=>a.id===aid)?.name||aid,success:false,error:e.message});}
+    }
+    setBulkResults({action:"change",items:results});setBulkLoading(false);load();
+  }
+
+  if(cart.length===0) return(
+    <div>
+      <div style={{fontSize:18,fontWeight:700,marginBottom:6}}>Cart</div>
+      <div style={{...S.card,textAlign:"center",padding:40,color:C.dim}}>
+        <div style={{fontSize:24,marginBottom:10}}>🛒</div>
+        <div style={{fontSize:13}}>Cart is empty.</div>
+        <div style={{fontSize:12,marginTop:6}}>Go to Account Vault and tick the checkboxes to add accounts.</div>
+      </div>
+    </div>
+  );
+
+  return(
+    <div>
+      <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>Cart</div>
+      <div style={{fontSize:12,color:C.muted,marginBottom:16}}>{cart.length} account{cart.length!==1?"s":""} selected · session-only (cleared on logout)</div>
+
+      {/* Action bar */}
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+        {!isReadOnly&&<Btn v="ghost" onClick={doBulkVerify} disabled={bulkLoading} style={{background:C.surface2,color:C.text}}>✓ Verify All</Btn>}
+        {!isReadOnly&&<Btn v="warning" onClick={doBulkChange} disabled={bulkLoading}>🔄 Change All Passwords</Btn>}
+        <Btn v="ghost" onClick={load}>↻ Refresh</Btn>
+        <Btn v="ghost" onClick={()=>setCart([])} style={{color:C.danger}}>✕ Clear Cart</Btn>
+        {bulkLoading&&<span style={{fontSize:12,color:C.muted,display:"flex",alignItems:"center"}}>⟳ Processing...</span>}
+      </div>
+
+      {/* Bulk results */}
+      {bulkResults&&<div style={{...S.card,marginBottom:14}}>
+        <div style={{fontSize:12,fontWeight:600,marginBottom:10}}>{bulkResults.action==="verify"?"Verification Results":"Password Change Results"}</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+          {bulkResults.items.map((r,i)=><span key={i} style={{...S.badge(r.success?"success":"danger"),padding:"4px 10px",fontSize:12}}>{r.name}: {r.success?"✓ OK":"✗ "+(r.error||"Failed")}</span>)}
+        </div>
+      </div>}
+
+      {/* Account list */}
+      <div style={{...S.card,padding:0,overflow:"hidden"}}>
+        {loading?<div style={{padding:30,textAlign:"center",color:C.dim}}>Loading...</div>:
+        <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <thead><tr>
+            <th style={S.th}>Account</th><th style={S.th}>Address</th><th style={S.th}>OS</th>
+            <th style={S.th}>Status</th><th style={S.th}>Last Verified</th><th style={S.th}>Actions</th>
+          </tr></thead>
+          <tbody>
+            {accounts.map(acc=>(
+              <tr key={acc.id} style={{cursor:"pointer"}} onClick={()=>onOpenAccount(acc)}>
+                <td style={S.td}><div style={{fontWeight:500,color:C.accent}}>{acc.name}</div><div style={{fontSize:11,color:C.muted}}>{acc.username}</div></td>
+                <td style={{...S.td,color:C.muted}}>{acc.hostname}:{acc.port}</td>
+                <td style={S.td}>{acc.os==="windows"?"🪟":"🐧"} {acc.os}</td>
+                <td style={S.td}><span style={S.badge(!acc.auto_management?"disabled":acc.status==="active"?"success":"danger")}>{!acc.auto_management?"Mgmt Disabled":acc.status}</span></td>
+                <td style={{...S.td,fontSize:11,color:C.dim}}>{acc.last_verified?new Date(acc.last_verified).toLocaleString():"Never"}</td>
+                <td style={S.td} onClick={e=>e.stopPropagation()}>
+                  <Btn v="ghost" sz="sm" onClick={()=>setCart(p=>p.filter(id=>id!==acc.id))} style={{color:C.dim}}>✕ Remove</Btn>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>}
       </div>
     </div>
   );
 }
+
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
