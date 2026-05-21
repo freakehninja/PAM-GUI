@@ -7,24 +7,44 @@
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<!-- xterm for PSM SSH terminal -->
+<link rel="stylesheet" href="https://unpkg.com/xterm@5.3.0/css/xterm.css"/>
+<script src="https://unpkg.com/xterm@5.3.0/lib/xterm.js"></script>
+<script src="https://unpkg.com/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'IBM Plex Mono',monospace,Consolas;background:#0a0e1a;color:#f1f5f9;font-size:13px;}
+body{font-family:'IBM Plex Mono',monospace,Consolas;font-size:13px;transition:background 0.2s,color 0.2s;}
+body.dark{background:#0a0e1a;color:#f1f5f9;}
+body.light{background:#f1f5f9;color:#1e293b;}
 input,select,button,textarea{font-family:inherit;}
 ::-webkit-scrollbar{width:5px;height:5px;}
-::-webkit-scrollbar-track{background:#111827;}
-::-webkit-scrollbar-thumb{background:#1e3a5f;border-radius:3px;}
+::-webkit-scrollbar-track{background:var(--surface);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
 input[type=checkbox]{accent-color:#0ea5e9;width:14px;height:14px;cursor:pointer;}
+.dark{--bg:#0a0e1a;--surface:#111827;--surface2:#1a2235;--border:#1e3a5f;--text:#f1f5f9;--muted:#94a3b8;--dim:#475569;}
+.light{--bg:#f1f5f9;--surface:#ffffff;--surface2:#e2e8f0;--border:#cbd5e1;--text:#1e293b;--muted:#64748b;--dim:#94a3b8;}
 </style>
 </head>
-<body>
+<body class="dark">
 <div id="root"></div>
 <script type="text/babel">
-const {useState,useEffect,useRef,useCallback}=React;
+const {useState,useEffect,useRef,useCallback,useMemo}=React;
 const API="";
-const C={bg:"#0a0e1a",surface:"#111827",surface2:"#1a2235",surface3:"#0f1929",
-  border:"#1e3a5f",accent:"#0ea5e9",success:"#10b981",danger:"#ef4444",
-  warning:"#f59e0b",purple:"#a78bfa",text:"#f1f5f9",muted:"#94a3b8",dim:"#475569"};
+// Accent colors always the same regardless of theme
+const ACCENT="#0ea5e9";
+const SUCCESS="#10b981";
+const DANGER="#ef4444";
+const WARNING="#f59e0b";
+const PURPLE="#a78bfa";
+
+// Theme-aware color getter
+function useTheme(){
+  const [dark,setDark]=useState(()=>localStorage.getItem("pam_theme")!=="light");
+  function toggle(){setDark(d=>{const nd=!d;localStorage.setItem("pam_theme",nd?"dark":"light");document.body.className=nd?"dark":"light";return nd;});}
+  useEffect(()=>{document.body.className=dark?"dark":"light";},[dark]);
+  return {dark,toggle};
+}
+
 let _token=localStorage.getItem("pam_token")||"";
 let _role=localStorage.getItem("pam_role")||"";
 
@@ -35,130 +55,101 @@ async function api(method,path,body){
   return data;
 }
 
-const S={
+function useC(dark){
+  return {
+    bg:dark?"#0a0e1a":"#f1f5f9",
+    surface:dark?"#111827":"#ffffff",
+    surface2:dark?"#1a2235":"#e2e8f0",
+    surface3:dark?"#0f1929":"#f8fafc",
+    border:dark?"#1e3a5f":"#cbd5e1",
+    text:dark?"#f1f5f9":"#1e293b",
+    muted:dark?"#94a3b8":"#64748b",
+    dim:dark?"#475569":"#94a3b8",
+  };
+}
+
+function mkS(C,dark){return {
   card:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:"18px 22px",marginBottom:14},
   input:{background:C.surface2,border:`1px solid ${C.border}`,borderRadius:6,padding:"7px 11px",color:C.text,fontSize:12,width:"100%",outline:"none"},
   label:{fontSize:10,color:C.muted,marginBottom:3,display:"block",textTransform:"uppercase",letterSpacing:"0.08em"},
-  btn:(v="primary",sz="md")=>({padding:sz==="sm"?"5px 10px":"7px 14px",borderRadius:5,border:"none",cursor:"pointer",fontSize:sz==="sm"?11:12,fontWeight:500,
-    background:v==="primary"?C.accent:v==="danger"?C.danger:v==="success"?C.success:v==="warning"?C.warning:v==="ghost"?"transparent":C.surface2,
-    color:v==="ghost"?C.muted:"#fff",border:v==="ghost"?`1px solid ${C.border}`:"none",whiteSpace:"nowrap"}),
-  modal:{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000},
-  modalBox:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:28,width:480,maxHeight:"90vh",overflowY:"auto"},
-  th:{textAlign:"left",padding:"8px 12px",fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:"0.08em",borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap"},
-  td:{padding:"9px 12px",borderBottom:`1px solid rgba(30,58,95,0.35)`,fontSize:12,verticalAlign:"middle"},
+  btn:(v="primary",sz="md")=>({padding:sz==="sm"?"4px 9px":"7px 13px",borderRadius:5,border:"none",cursor:"pointer",fontSize:sz==="sm"?11:12,fontWeight:500,whiteSpace:"nowrap",
+    background:v==="primary"?ACCENT:v==="danger"?DANGER:v==="success"?SUCCESS:v==="warning"?WARNING:v==="ghost"?C.surface2:"transparent",
+    color:v==="ghost"?C.text:v==="link"?ACCENT:"#fff",
+    border:v==="link"?"none":v==="ghost"?`1px solid ${C.border}`:"none"}),
+  modal:{position:"fixed",inset:0,background:dark?"rgba(0,0,0,0.8)":"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000},
+  modalBox:{background:C.surface,border:`1px solid ${C.border}`,borderRadius:12,padding:26,width:480,maxHeight:"90vh",overflowY:"auto"},
+  th:{textAlign:"left",padding:"8px 12px",fontSize:10,color:C.muted,textTransform:"uppercase",letterSpacing:"0.08em",borderBottom:`1px solid ${C.border}`,whiteSpace:"nowrap",background:C.surface},
+  td:{padding:"9px 12px",borderBottom:`1px solid ${dark?"rgba(30,58,95,0.35)":"rgba(203,213,225,0.5)"}`,fontSize:12,verticalAlign:"middle"},
   badge:(c)=>({display:"inline-block",padding:"2px 7px",borderRadius:3,fontSize:10,
-    background:c==="success"?"rgba(16,185,129,0.15)":c==="danger"?"rgba(239,68,68,0.15)":c==="warning"?"rgba(245,158,11,0.15)":c==="purple"?"rgba(167,139,250,0.15)":c==="disabled"?"rgba(100,100,100,0.2)":"rgba(14,165,233,0.15)",
-    color:c==="success"?C.success:c==="danger"?C.danger:c==="warning"?C.warning:c==="purple"?C.purple:c==="disabled"?C.dim:C.accent}),
-};
-function F({label,children,half}){return <div style={{marginBottom:12,flex:half?"0 0 calc(50% - 6px)":undefined}}><label style={S.label}>{label}</label>{children}</div>;}
-function Btn({v,sz,onClick,disabled,children,style}){return <button style={{...S.btn(v,sz),...style,opacity:disabled?0.5:1}} onClick={onClick} disabled={disabled}>{children}</button>;}
+    background:c==="success"?"rgba(16,185,129,0.15)":c==="danger"?"rgba(239,68,68,0.15)":c==="warning"?"rgba(245,158,11,0.15)":c==="purple"?"rgba(167,139,250,0.15)":c==="disabled"?"rgba(100,100,100,0.15)":"rgba(14,165,233,0.15)",
+    color:c==="success"?SUCCESS:c==="danger"?DANGER:c==="warning"?WARNING:c==="purple"?PURPLE:c==="disabled"?C.muted:ACCENT}),
+};}
 
-// QR via qrserver.com img tag
+const ThemeCtx=React.createContext({dark:true,C:{},S:{}});
+function F({label,children,half}){
+  const {C,S}=React.useContext(ThemeCtx);
+  return <div style={{marginBottom:11,flex:half?"0 0 calc(50% - 6px)":undefined}}><label style={S.label}>{label}</label>{children}</div>;
+}
+function Btn({v="primary",sz="md",onClick,disabled,children,style={}}){
+  const {S}=React.useContext(ThemeCtx);
+  return <button style={{...S.btn(v,sz),...style,opacity:disabled?0.45:1}} onClick={onClick} disabled={disabled}>{children}</button>;
+}
+
+// QR Image component
 function QRImg({value,size=180}){
   const [failed,setFailed]=useState(false);
+  const {C}=React.useContext(ThemeCtx);
   const url=`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(value)}&bgcolor=ffffff&color=000000&margin=10`;
-  if(failed) return <div style={{background:"#fff",borderRadius:8,padding:16,textAlign:"center",width:size,display:"inline-block"}}><div style={{color:"#333",fontSize:11,marginBottom:6}}>QR unavailable (no internet)</div><div style={{color:"#555",fontSize:10}}>Enter secret manually in Authenticator</div></div>;
-  return <img src={url} width={size} height={size} style={{borderRadius:8,display:"block",margin:"0 auto",background:"#fff"}} onError={()=>setFailed(true)} alt="MFA QR Code"/>;
+  if(failed) return <div style={{background:"#fff",borderRadius:8,padding:16,textAlign:"center",width:size,display:"inline-block"}}><div style={{color:"#333",fontSize:11}}>QR unavailable — enter secret manually</div></div>;
+  return <img src={url} width={size} height={size} style={{borderRadius:8,display:"block",margin:"0 auto"}} onError={()=>setFailed(true)} alt="Scan with Microsoft Authenticator"/>;
 }
 
-// ── Confirm Dialog ────────────────────────────────────────────────────────────
 function Confirm({title,msg,onConfirm,onCancel,danger=true}){
+  const {C,S}=React.useContext(ThemeCtx);
   return <div style={S.modal} onClick={e=>e.target===e.currentTarget&&onCancel()}>
-    <div style={{...S.modalBox,width:360}}>
-      <div style={{fontSize:14,fontWeight:600,marginBottom:10}}>{title}</div>
-      <div style={{fontSize:12,color:C.muted,marginBottom:22}}>{msg}</div>
-      <div style={{display:"flex",gap:8}}>
-        <Btn v="ghost" onClick={onCancel}>Cancel</Btn>
-        <button style={{...S.btn(danger?"danger":"primary"),flex:1}} onClick={onConfirm}>Confirm</button>
-      </div>
-    </div>
-  </div>;
-}
-
-// ── TOTP Input Modal ──────────────────────────────────────────────────────────
-function TOTPModal({title,subtitle,onVerify,onClose}){
-  const [code,setCode]=useState("");const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
-  async function submit(){
-    if(code.length!==6)return;
-    setLoading(true);setErr("");
-    try{await onVerify(code);}
-    catch(e){setErr(e.message);setCode("");}
-    finally{setLoading(false);}
-  }
-  return <div style={S.modal} onClick={e=>e.target===e.currentTarget&&onClose()}>
-    <div style={{...S.modalBox,width:380}}>
-      <div style={{textAlign:"center",marginBottom:16}}>
-        <div style={{fontSize:28,marginBottom:6}}>🔐</div>
-        <div style={{fontSize:14,fontWeight:600}}>{title}</div>
-        {subtitle&&<div style={{fontSize:12,color:C.muted,marginTop:4}}>{subtitle}</div>}
-      </div>
-      <div style={{background:C.surface2,borderRadius:7,padding:"10px 14px",marginBottom:14,fontSize:12,color:C.muted}}>
-        Enter the 6-digit code from <strong style={{color:C.text}}>Microsoft Authenticator</strong>.
-      </div>
-      <F label="Authenticator Code">
-        <input style={{...S.input,fontSize:20,letterSpacing:"0.3em",textAlign:"center"}} value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="000000" maxLength={6} onKeyDown={e=>e.key==="Enter"&&submit()} autoFocus/>
-      </F>
-      {err&&<div style={{color:C.danger,fontSize:12,marginBottom:10}}>⚠ {err}</div>}
-      <div style={{display:"flex",gap:8}}>
-        <Btn v="ghost" onClick={onClose}>Cancel</Btn>
-        <button style={{...S.btn("primary"),flex:1,opacity:(loading||code.length!==6)?0.5:1}} onClick={submit} disabled={loading||code.length!==6}>{loading?"Verifying...":"Verify"}</button>
-      </div>
+    <div style={{...S.modalBox,width:350}}>
+      <div style={{fontSize:14,fontWeight:600,marginBottom:10,color:C.text}}>{title}</div>
+      <div style={{fontSize:12,color:C.muted,marginBottom:20}}>{msg}</div>
+      <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={onCancel}>Cancel</Btn><button style={{...S.btn(danger?"danger":"primary"),flex:1}} onClick={onConfirm}>Confirm</button></div>
     </div>
   </div>;
 }
 
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
 function LoginPage({onLogin,hasUsers,onRegister}){
+  const {C,S,dark}=React.useContext(ThemeCtx);
   const [u,setU]=useState("");const [p,setP]=useState("");const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
   const [locked,setLocked]=useState(false);const [showReset,setShowReset]=useState(false);
-  const [lockedUntil,setLockedUntil]=useState(null);
-
-  // Reset password flow
-  const [resetStep,setResetStep]=useState(1);
-  const [resetCode,setResetCode]=useState("");const [newPass,setNewPass]=useState("");const [newPass2,setNewPass2]=useState("");const [resetErr,setResetErr]=useState("");const [resetLoading,setResetLoading]=useState(false);
+  const [resetStep,setResetStep]=useState(1);const [resetCode,setResetCode]=useState("");const [newPass,setNewPass]=useState("");const [newPass2,setNewPass2]=useState("");const [resetErr,setResetErr]=useState("");const [resetLoading,setResetLoading]=useState(false);
 
   async function submit(){
     setLoading(true);setErr("");
-    try{
-      const d=await api("POST","/auth/login",{username:u,password:p});
-      _token=d.token;_role=d.role;
-      localStorage.setItem("pam_token",d.token);localStorage.setItem("pam_role",d.role);
-      onLogin(d);
-    }catch(e){
-      const msg=e.message;
-      if(msg.includes("locked")){setLocked(true);}
-      setErr(msg);
-    }finally{setLoading(false);}
+    try{const d=await api("POST","/auth/login",{username:u,password:p});_token=d.token;_role=d.role;localStorage.setItem("pam_token",d.token);localStorage.setItem("pam_role",d.role);onLogin(d);}
+    catch(e){if(e.message.includes("locked"))setLocked(true);setErr(e.message);}
+    finally{setLoading(false);}
   }
-
   async function doReset(){
-    if(newPass!==newPass2){setResetErr("Passwords do not match");return;}
-    if(newPass.length<8){setResetErr("Password must be 8+ characters");return;}
+    if(newPass!==newPass2){setResetErr("Passwords don't match");return;}
+    if(newPass.length<8){setResetErr("Password must be 8+ chars");return;}
     setResetLoading(true);setResetErr("");
-    try{
-      await api("POST","/auth/reset_password",{username:u,totp_code:resetCode,new_password:newPass});
-      setShowReset(false);setLocked(false);setErr("Password reset successful. Please log in.");
-    }catch(e){setResetErr(e.message);}
-    finally{setResetLoading(false);}
+    try{await api("POST","/auth/reset_password",{username:u,totp_code:resetCode,new_password:newPass});setShowReset(false);setLocked(false);setErr("Password reset. Please log in.");}
+    catch(e){setResetErr(e.message);}finally{setResetLoading(false);}
   }
 
   if(showReset) return(
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
       <div style={{width:420}}>
-        <div style={{textAlign:"center",marginBottom:24}}><div style={{fontSize:22,fontWeight:700,color:C.accent}}>⬡ PAM Vault</div><div style={{fontSize:12,color:C.muted,marginTop:4}}>Reset Password</div></div>
+        <div style={{textAlign:"center",marginBottom:22}}><div style={{fontSize:20,fontWeight:700,color:ACCENT}}>⬡ PAM Vault</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>Reset Password via MFA</div></div>
         <div style={S.card}>
-          <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Enter your MFA code to verify identity, then set a new password.</div>
+          <F label="Username"><input style={S.input} value={u} onChange={e=>setU(e.target.value)}/></F>
           {resetStep===1&&<>
-            <F label="Username (account to reset)"><input style={S.input} value={u} onChange={e=>setU(e.target.value)} placeholder="username"/></F>
-            <F label="Authenticator Code">
-              <input style={{...S.input,fontSize:20,letterSpacing:"0.3em",textAlign:"center"}} value={resetCode} onChange={e=>setResetCode(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="000000" maxLength={6}/>
-            </F>
+            <F label="Authenticator Code"><input style={{...S.input,fontSize:18,letterSpacing:"0.25em",textAlign:"center"}} value={resetCode} onChange={e=>setResetCode(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="000000" maxLength={6}/></F>
             <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setShowReset(false)}>Back</Btn><button style={{...S.btn("primary"),flex:1}} onClick={()=>resetCode.length===6&&setResetStep(2)} disabled={resetCode.length!==6}>Continue</button></div>
           </>}
           {resetStep===2&&<>
             <F label="New Password"><input style={S.input} type="password" value={newPass} onChange={e=>setNewPass(e.target.value)}/></F>
-            <F label="Confirm New Password"><input style={S.input} type="password" value={newPass2} onChange={e=>setNewPass2(e.target.value)}/></F>
-            {resetErr&&<div style={{color:C.danger,fontSize:12,marginBottom:10}}>⚠ {resetErr}</div>}
+            <F label="Confirm"><input style={S.input} type="password" value={newPass2} onChange={e=>setNewPass2(e.target.value)}/></F>
+            {resetErr&&<div style={{color:DANGER,fontSize:12,marginBottom:10}}>⚠ {resetErr}</div>}
             <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setResetStep(1)}>Back</Btn><button style={{...S.btn("success"),flex:1,opacity:resetLoading?0.7:1}} onClick={doReset} disabled={resetLoading}>{resetLoading?"Resetting...":"Reset Password"}</button></div>
           </>}
         </div>
@@ -168,23 +159,19 @@ function LoginPage({onLogin,hasUsers,onRegister}){
 
   return(
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
-      <div style={{width:370}}>
-        <div style={{textAlign:"center",marginBottom:28}}>
-          <div style={{fontSize:26,fontWeight:700,color:C.accent}}>⬡ PAM Vault</div>
-          <div style={{fontSize:12,color:C.muted,marginTop:5}}>Privileged Access Management System</div>
-        </div>
+      <div style={{width:360}}>
+        <div style={{textAlign:"center",marginBottom:26}}><div style={{fontSize:24,fontWeight:700,color:ACCENT}}>⬡ PAM Vault</div><div style={{fontSize:12,color:C.muted,marginTop:4}}>Privileged Access Management System</div></div>
         <div style={S.card}>
-          {locked&&<div style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:6,padding:"10px 14px",fontSize:12,color:C.danger,marginBottom:14}}>
-            🔒 Account locked after 3 failed attempts.<br/>
-            <span style={{color:C.accent,cursor:"pointer",textDecoration:"underline"}} onClick={()=>{setShowReset(true);setResetStep(1);}}>Reset password with MFA →</span>
+          {locked&&<div style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:6,padding:"10px 13px",fontSize:12,color:DANGER,marginBottom:13}}>
+            🔒 Account locked after 3 failed attempts.<br/><span style={{color:ACCENT,cursor:"pointer"}} onClick={()=>{setShowReset(true);setResetStep(1);}}>Reset password with MFA →</span>
           </div>}
           <F label="Username"><input style={S.input} value={u} onChange={e=>setU(e.target.value)} placeholder="admin" onKeyDown={e=>e.key==="Enter"&&submit()}/></F>
           <F label="Password"><input style={S.input} type="password" value={p} onChange={e=>setP(e.target.value)} placeholder="••••••••" onKeyDown={e=>e.key==="Enter"&&submit()}/></F>
-          {err&&!locked&&<div style={{color:C.danger,fontSize:12,marginBottom:10}}>⚠ {err}</div>}
-          <Btn v="primary" onClick={submit} disabled={loading||locked} style={{width:"100%",padding:9,opacity:loading?0.7:1}}>{loading?"Signing in...":"Sign In"}</Btn>
-          {!hasUsers&&<div style={{marginTop:14,textAlign:"center"}}><span style={{fontSize:12,color:C.muted}}>No accounts yet. </span><span style={{fontSize:12,color:C.accent,cursor:"pointer"}} onClick={onRegister}>Create admin →</span></div>}
+          {err&&!locked&&<div style={{color:DANGER,fontSize:12,marginBottom:10}}>⚠ {err}</div>}
+          <Btn v="primary" onClick={submit} disabled={loading||locked} style={{width:"100%",padding:9}}>{loading?"Signing in...":"Sign In"}</Btn>
+          {!hasUsers&&<div style={{marginTop:13,textAlign:"center"}}><span style={{fontSize:12,color:C.muted}}>No accounts. </span><span style={{fontSize:12,color:ACCENT,cursor:"pointer"}} onClick={onRegister}>Create admin →</span></div>}
         </div>
-        <div style={{textAlign:"center",fontSize:11,color:C.dim,marginTop:12}}>TP072352 · APU Cybersecurity FYP</div>
+        <div style={{textAlign:"center",fontSize:11,color:C.dim,marginTop:10}}>TP072352 · APU Cybersecurity FYP</div>
       </div>
     </div>
   );
@@ -192,10 +179,11 @@ function LoginPage({onLogin,hasUsers,onRegister}){
 
 // ── REGISTER ──────────────────────────────────────────────────────────────────
 function RegisterPage({onBack,onDone}){
-  const [step,setStep]=useState(1);const [u,setU]=useState("");const [p,setP]=useState("");const [c,setC]=useState("");
+  const {C,S}=React.useContext(ThemeCtx);
+  const [step,setStep]=useState(1);const [u,setU]=useState("");const [p,setP]=useState("");const [c,setC_]=useState("");
   const [err,setErr]=useState("");const [qrData,setQrData]=useState(null);const [loading,setLoading]=useState(false);
   async function submit(){
-    if(!u.trim()){setErr("Username required");return;}if(p.length<8){setErr("Password 8+ chars");return;}if(p!==c){setErr("Passwords don't match");return;}
+    if(!u.trim()||p.length<8||p!==c){setErr(!u.trim()?"Username required":p.length<8?"Password 8+ chars":"Passwords don't match");return;}
     setLoading(true);setErr("");
     try{const d=await api("POST","/auth/register",{username:u,password:p});setQrData(d);setStep(2);}
     catch(e){setErr(e.message);}finally{setLoading(false);}
@@ -203,29 +191,27 @@ function RegisterPage({onBack,onDone}){
   return(
     <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
       <div style={{width:480}}>
-        <div style={{textAlign:"center",marginBottom:22}}><div style={{fontSize:20,fontWeight:700,color:C.accent}}>⬡ PAM Vault</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>Create Admin Account</div></div>
+        <div style={{textAlign:"center",marginBottom:20}}><div style={{fontSize:20,fontWeight:700,color:ACCENT}}>⬡ PAM Vault</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>Create Admin Account</div></div>
         <div style={S.card}>
           {step===1&&<>
-            <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Step 1 of 2 — Account details</div>
+            <div style={{fontSize:12,color:C.muted,marginBottom:14}}>Step 1 of 2 — Account details</div>
             <F label="Username"><input style={S.input} value={u} onChange={e=>setU(e.target.value)} placeholder="admin"/></F>
             <F label="Password"><input style={S.input} type="password" value={p} onChange={e=>setP(e.target.value)}/></F>
-            <F label="Confirm Password"><input style={S.input} type="password" value={c} onChange={e=>setC(e.target.value)}/></F>
-            {err&&<div style={{color:C.danger,fontSize:12,marginBottom:10}}>⚠ {err}</div>}
+            <F label="Confirm Password"><input style={S.input} type="password" value={c} onChange={e=>setC_(e.target.value)}/></F>
+            {err&&<div style={{color:DANGER,fontSize:12,marginBottom:10}}>⚠ {err}</div>}
             <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={onBack}>Back</Btn><button style={{...S.btn("primary"),flex:1,opacity:loading?0.7:1}} onClick={submit} disabled={loading}>{loading?"Creating...":"Continue"}</button></div>
           </>}
           {step===2&&qrData&&<>
-            <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Step 2 of 2 — Set up Microsoft Authenticator</div>
-            <div style={{background:C.surface2,borderRadius:8,padding:20,textAlign:"center",marginBottom:14}}>
+            <div style={{fontSize:12,color:C.muted,marginBottom:14}}>Step 2 of 2 — Set up Microsoft Authenticator</div>
+            <div style={{background:C.surface2,borderRadius:8,padding:20,textAlign:"center",marginBottom:13}}>
               <QRImg value={qrData.otp_uri} size={180}/>
-              <div style={{marginTop:12,fontSize:12,color:C.muted}}>Open <strong style={{color:C.text}}>Microsoft Authenticator</strong> → Add account → Scan QR</div>
-              <div style={{marginTop:10,background:C.surface,borderRadius:6,padding:"8px 12px",display:"inline-block"}}>
+              <div style={{marginTop:11,fontSize:12,color:C.muted}}>Open <strong style={{color:C.text}}>Microsoft Authenticator</strong> → Add account → Scan QR</div>
+              <div style={{marginTop:9,background:C.surface,borderRadius:5,padding:"7px 11px",display:"inline-block"}}>
                 <div style={{fontSize:10,color:C.dim,marginBottom:2,textTransform:"uppercase"}}>Manual secret:</div>
-                <div style={{fontSize:12,color:C.accent,letterSpacing:"0.12em",wordBreak:"break-all",fontWeight:600}}>{qrData.totp_secret}</div>
+                <div style={{fontSize:12,color:ACCENT,letterSpacing:"0.12em",wordBreak:"break-all",fontWeight:600}}>{qrData.totp_secret}</div>
               </div>
             </div>
-            <div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:6,padding:"10px 14px",fontSize:12,color:C.warning,marginBottom:16}}>
-              ⚠ <strong>Save this QR now.</strong> It will NOT be shown again. Required to retrieve credentials.
-            </div>
+            <div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:6,padding:"9px 13px",fontSize:12,color:WARNING,marginBottom:14}}>⚠ Save this QR. It will NOT be shown again.</div>
             <Btn v="success" onClick={onDone} style={{width:"100%",padding:9}}>✓ I've scanned — Go to Login</Btn>
           </>}
         </div>
@@ -234,262 +220,9 @@ function RegisterPage({onBack,onDone}){
   );
 }
 
-// ── ACCOUNT DETAIL PAGE ───────────────────────────────────────────────────────
-function AccountDetailPage({account:initAcc,onBack,isReadOnly,currentUser}){
-  const [acc,setAcc]=useState(initAcc);
-  const [tab,setTab]=useState("cpm"); // cpm | activities | psm
-  const [logs,setLogs]=useState([]);
-  const [logsLoading,setLogsLoading]=useState(true);
-  const [showEdit,setShowEdit]=useState(false);
-  const [showRetrieve,setShowRetrieve]=useState(false);
-  const [showChangePass,setShowChangePass]=useState(false);
-  const [verifying,setVerifying]=useState(false);
-  const [verifyResult,setVerifyResult]=useState(null);
-  const [actionMsg,setActionMsg]=useState(null); // {type,text}
-
-  async function loadLogs(){
-    setLogsLoading(true);
-    try{const d=await api("GET",`/logs?account_id=${acc.id}`);setLogs(d);}catch(e){}
-    finally{setLogsLoading(false);}
-  }
-  async function refreshAcc(){
-    try{const d=await api("GET","/accounts");const updated=d.find(a=>a.id===acc.id);if(updated)setAcc(updated);}catch(e){}
-  }
-  useEffect(()=>{loadLogs();},[acc.id]);
-
-  async function doVerify(){
-    setVerifying(true);setVerifyResult(null);setActionMsg(null);
-    try{
-      const d=await api("POST",`/accounts/${acc.id}/verify`);
-      setVerifyResult(d);
-      setActionMsg({type:d.success?"success":"error",text:d.success?"✓ Verification successful — credentials are valid.":"✗ Verification failed: "+(d.error||d.code)});
-      await refreshAcc();await loadLogs();
-    }catch(e){setActionMsg({type:"error",text:"Verify error: "+e.message});}
-    finally{setVerifying(false);}
-  }
-
-  const typeColor={success:C.success,error:C.danger,warning:C.warning,info:C.accent};
-  const statusBadge=()=>{
-    if(!acc.auto_management) return "disabled";
-    return acc.status==="active"?"success":acc.status==="error"?"danger":"warning";
-  };
-  const statusLabel=()=>{
-    if(!acc.auto_management) return "Mgmt Disabled";
-    return acc.status;
-  };
-
-  // CPM tab: show latest status
-  const cpmLogs = logs.filter(l=>l.code?.match(/ROT_|VERIFY_|POSTVERIFY_/));
-  const lastCPM = cpmLogs[0];
-
-  // Activities tab: all logs
-  const actLogs = logs;
-
-  return(
-    <div style={{display:"flex",gap:0,height:"calc(100vh - 56px)"}}>
-      {/* Left panel — account info */}
-      <div style={{width:300,minWidth:280,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",overflowY:"auto"}}>
-        <div style={{padding:"16px 18px",borderBottom:`1px solid ${C.border}`}}>
-          <button onClick={onBack} style={{...S.btn("ghost","sm"),marginBottom:12,paddingLeft:0}}>← Back to Vault</button>
-          <div style={{fontSize:16,fontWeight:700,color:C.text,marginBottom:2}}>{acc.name}</div>
-          <div style={{fontSize:11,color:C.muted}}>{acc.username}@{acc.hostname}</div>
-          <div style={{marginTop:8}}><span style={S.badge(statusBadge())}>{statusLabel()}</span></div>
-        </div>
-
-        {/* Action buttons */}
-        {!isReadOnly&&<div style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`,display:"flex",flexDirection:"column",gap:6}}>
-          <Btn v="primary" sz="sm" onClick={()=>setShowRetrieve(true)} style={{width:"100%"}}>🔑 Retrieve Credential</Btn>
-          <Btn v="default" sz="sm" onClick={doVerify} disabled={verifying} style={{width:"100%",background:C.surface2,color:C.text}}>{verifying?"⟳ Verifying...":"✓ Verify Password"}</Btn>
-          <Btn v="warning" sz="sm" onClick={()=>setShowChangePass(true)} style={{width:"100%"}}>🔄 Change Password</Btn>
-          <Btn v="ghost" sz="sm" onClick={()=>setShowEdit(true)} style={{width:"100%"}}>✏️ Edit Account</Btn>
-        </div>}
-        {isReadOnly&&<div style={{padding:"12px 18px",borderBottom:`1px solid ${C.border}`}}>
-          <Btn v="primary" sz="sm" onClick={()=>setShowRetrieve(true)} style={{width:"100%"}}>🔑 Retrieve Credential</Btn>
-        </div>}
-
-        {actionMsg&&<div style={{margin:"10px 18px",background:actionMsg.type==="success"?"rgba(16,185,129,0.08)":"rgba(239,68,68,0.08)",border:`1px solid ${actionMsg.type==="success"?"rgba(16,185,129,0.25)":"rgba(239,68,68,0.25)"}`,borderRadius:6,padding:"8px 12px",fontSize:12,color:actionMsg.type==="success"?C.success:C.danger}}>
-          {actionMsg.text}
-        </div>}
-
-        {/* Account info fields */}
-        <div style={{padding:"14px 18px",flex:1}}>
-          {[
-            ["Platform / OS", acc.os==="windows"?"Windows":"Linux"],
-            ["Address", acc.hostname],
-            ["Port", acc.port],
-            ["Username", acc.username],
-            ["Password Length", `${acc.password_length} characters`],
-            ["Last Verified", acc.last_verified?new Date(acc.last_verified).toLocaleString():"Never"],
-            ["Last Changed", acc.last_rotated?new Date(acc.last_rotated).toLocaleString():"Never"],
-            ["Last Modified", acc.created_at?new Date(acc.created_at).toLocaleDateString():"—"],
-            ["Auto Management", acc.auto_management?"Enabled":"Disabled"],
-            ["Description", acc.description||"—"],
-          ].map(([k,v])=>(
-            <div key={k} style={{marginBottom:10,paddingBottom:10,borderBottom:`1px solid rgba(30,58,95,0.3)`}}>
-              <div style={{fontSize:10,color:C.dim,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>{k}</div>
-              <div style={{fontSize:12,color:C.text,wordBreak:"break-all"}}>{v}</div>
-            </div>
-          ))}
-          {!acc.auto_management&&acc.disable_reason&&(
-            <div style={{background:"rgba(100,100,100,0.1)",border:"1px solid rgba(100,100,100,0.2)",borderRadius:5,padding:"8px 10px",fontSize:12,color:C.muted}}>
-              <div style={{fontSize:10,color:C.dim,marginBottom:3}}>DISABLE REASON</div>
-              {acc.disable_reason}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Right panel — tabs */}
-      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-        {/* Tab bar */}
-        <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,background:C.surface,paddingLeft:20}}>
-          {[["cpm","CPM"],["activities","Activities"],["psm","PSM Connect"]].map(([k,l])=>(
-            <button key={k} onClick={()=>setTab(k)} style={{padding:"11px 18px",border:"none",background:"transparent",color:tab===k?C.accent:C.muted,borderBottom:tab===k?`2px solid ${C.accent}`:"2px solid transparent",cursor:"pointer",fontSize:12,fontWeight:tab===k?600:400}}>
-              {l}
-            </button>
-          ))}
-          <div style={{flex:1}}/>
-          <button onClick={()=>{loadLogs();refreshAcc();}} style={{...S.btn("ghost","sm"),margin:"6px 12px",fontSize:11}}>↻ Refresh</button>
-        </div>
-
-        {/* CPM Tab */}
-        {tab==="cpm"&&<div style={{flex:1,overflowY:"auto",padding:20}}>
-          <div style={{fontSize:13,fontWeight:600,marginBottom:14,color:C.text}}>Central Password Manager</div>
-          {/* Status card */}
-          <div style={{...S.card,borderColor:lastCPM?.type==="error"?C.danger:lastCPM?.type==="success"?C.success:C.border}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-              <span style={{fontSize:20}}>{!acc.auto_management?"⛔":lastCPM?.type==="error"?"⚠️":lastCPM?.type==="success"?"✅":"ℹ️"}</span>
-              <div>
-                <div style={{fontWeight:600,fontSize:13}}>
-                  {!acc.auto_management?"Automatic Management Disabled":lastCPM?.type==="error"?"CPM Error":lastCPM?.type==="success"?"CPM Success":"No Recent Activity"}
-                </div>
-                {lastCPM&&<div style={{fontSize:11,color:C.dim,marginTop:2}}>{new Date(lastCPM.timestamp).toLocaleString()}</div>}
-              </div>
-              {lastCPM&&<span style={{...S.badge(lastCPM.type==="success"?"success":"danger"),marginLeft:"auto"}}>{lastCPM.code}</span>}
-            </div>
-            {!acc.auto_management&&<div style={{fontSize:12,color:C.muted}}>
-              This account has automatic password management disabled.{acc.disable_reason?" Reason: "+acc.disable_reason:""}
-            </div>}
-            {lastCPM&&<div style={{fontSize:12,color:lastCPM.type==="error"?C.danger:C.muted,background:C.surface2,borderRadius:5,padding:"8px 12px"}}>{lastCPM.message}</div>}
-          </div>
-
-          {/* Recent CPM events */}
-          <div style={{fontSize:12,fontWeight:600,color:C.muted,marginBottom:10,textTransform:"uppercase",letterSpacing:"0.08em"}}>Recent CPM Events</div>
-          {logsLoading?<div style={{color:C.dim,fontSize:12}}>Loading...</div>:
-          cpmLogs.length===0?<div style={{color:C.dim,fontSize:12}}>No CPM events yet.</div>:
-          <div style={{display:"flex",flexDirection:"column",gap:6}}>
-            {cpmLogs.slice(0,10).map((l,i)=>(
-              <div key={i} style={{background:C.surface2,borderRadius:6,padding:"10px 14px",border:`1px solid ${l.type==="error"?C.danger:l.type==="success"?C.success:C.border}`,borderLeftWidth:3}}>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
-                  <span style={{fontSize:11,color:typeColor[l.type]||C.muted,fontWeight:600}}>{l.code}</span>
-                  <span style={{fontSize:10,color:C.dim,marginLeft:"auto"}}>{new Date(l.timestamp).toLocaleString()}</span>
-                </div>
-                <div style={{fontSize:12,color:l.type==="error"?C.danger:C.text}}>{l.message}</div>
-                {l.user&&<div style={{fontSize:10,color:C.dim,marginTop:3}}>by {l.user}</div>}
-              </div>
-            ))}
-          </div>}
-        </div>}
-
-        {/* Activities Tab */}
-        {tab==="activities"&&<div style={{flex:1,overflowY:"auto"}}>
-          <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead style={{position:"sticky",top:0,background:C.surface,zIndex:1}}>
-              <tr>
-                <th style={S.th}>Time</th>
-                <th style={S.th}>User</th>
-                <th style={S.th}>Action</th>
-                <th style={S.th}>Status</th>
-                <th style={S.th}>More Info</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logsLoading&&<tr><td colSpan={5} style={{...S.td,textAlign:"center",color:C.dim,padding:30}}>Loading...</td></tr>}
-              {!logsLoading&&actLogs.length===0&&<tr><td colSpan={5} style={{...S.td,textAlign:"center",color:C.dim,padding:30}}>No activity recorded yet.</td></tr>}
-              {actLogs.map((l,i)=>(
-                <tr key={i} style={{background:i%2===0?"transparent":"rgba(26,34,53,0.3)"}}>
-                  <td style={{...S.td,fontSize:11,color:C.dim,whiteSpace:"nowrap"}}>{new Date(l.timestamp).toLocaleString('en-GB',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:3})}</td>
-                  <td style={{...S.td,color:C.muted}}>{l.user||"system"}</td>
-                  <td style={{...S.td,color:C.text}}>{l.code}</td>
-                  <td style={S.td}><span style={S.badge(l.type==="success"?"success":l.type==="error"?"danger":l.type==="warning"?"warning":"info")}>{l.type}</span></td>
-                  <td style={{...S.td,color:l.type==="error"?C.danger:C.muted,fontSize:11,maxWidth:300}}>{l.message}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>}
-
-        {/* PSM Connect Tab */}
-        {tab==="psm"&&<PSMTab account={acc}/>}
-      </div>
-
-      {/* Modals */}
-      {showRetrieve&&<RetrieveModal account={acc} onClose={()=>setShowRetrieve(false)} onDone={loadLogs}/>}
-      {showChangePass&&<ChangePassModal account={acc} onClose={()=>{setShowChangePass(false);refreshAcc();loadLogs();}} onDone={msg=>{setActionMsg({type:"success",text:msg});setShowChangePass(false);refreshAcc();loadLogs();}}/>}
-      {showEdit&&<AccountEditModal account={acc} onSave={async(form)=>{await api("PUT",`/accounts/${acc.id}`,form);setShowEdit(false);refreshAcc();loadLogs();}} onClose={()=>setShowEdit(false)}/>}
-    </div>
-  );
-}
-
-// ── PSM Tab ───────────────────────────────────────────────────────────────────
-function PSMTab({account}){
-  const [status,setStatus]=useState("idle"); // idle | connecting | connected | failed
-  const [msg,setMsg]=useState("");
-
-  async function connect(){
-    setStatus("connecting");setMsg("");
-    // For Linux: attempt SSH via a websocket terminal (xterm.js) — not available without extra server
-    // For Windows: attempt RDP file download
-    await new Promise(r=>setTimeout(r,1500));
-    if(account.os==="windows"){
-      // Generate .rdp file content
-      const rdp=`full address:s:${account.hostname}:${account.port===5985?3389:account.port}\nusername:s:${account.username}\nauthentication level:i:2\nenablecredsspsupport:i:0\n`;
-      const blob=new Blob([rdp],{type:"text/plain"});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement("a");a.href=url;a.download=`${account.name.replace(/\s+/g,"_")}.rdp`;a.click();
-      setStatus("connected");setMsg("RDP file downloaded. Open it to start a Remote Desktop session to "+account.hostname+".");
-    } else {
-      // For Linux: show SSH command
-      setStatus("connected");setMsg(`SSH command:\n\nssh ${account.username}@${account.hostname} -p ${account.port}\n\nFor browser-based SSH, deploy a webssh or shellinabox service on the controller.`);
-    }
-  }
-
-  return(
-    <div style={{padding:24,overflowY:"auto",flex:1}}>
-      <div style={{fontSize:13,fontWeight:600,marginBottom:6}}>PSM Connect</div>
-      <div style={{fontSize:12,color:C.muted,marginBottom:20}}>
-        {account.os==="windows"?"Launch a Remote Desktop (RDP) session to this Windows machine.":"Launch an SSH session to this Linux machine."}
-      </div>
-
-      <div style={{...S.card,marginBottom:16}}>
-        <div style={{display:"flex",flexWrap:"wrap",gap:20,marginBottom:16}}>
-          {[["Target",""+account.hostname],["Protocol",account.os==="windows"?"RDP (3389)":"SSH ("+account.port+")"],["Username",account.username],["OS",account.os==="windows"?"Windows":"Linux"]].map(([k,v])=>(
-            <div key={k}><div style={{fontSize:10,color:C.dim,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:2}}>{k}</div><div style={{fontSize:12,color:C.text}}>{v}</div></div>
-          ))}
-        </div>
-
-        <Btn v={status==="connecting"?"ghost":"primary"} onClick={connect} disabled={status==="connecting"} style={{marginBottom:status!=="idle"?12:0}}>
-          {status==="connecting"?"⟳ Connecting...":account.os==="windows"?"▶ Launch RDP Session":"▶ Get SSH Command"}
-        </Btn>
-
-        {status==="connected"&&<div style={{background:C.surface2,borderRadius:6,padding:"12px 14px",fontSize:12,color:C.success,whiteSpace:"pre-wrap"}}>{msg}</div>}
-        {status==="failed"&&<div style={{background:"rgba(239,68,68,0.08)",borderRadius:6,padding:"10px 14px",fontSize:12,color:C.danger}}>{msg}</div>}
-      </div>
-
-      <div style={{...S.card,background:"rgba(14,165,233,0.04)"}}>
-        <div style={{fontSize:11,fontWeight:600,color:C.accent,marginBottom:8}}>ℹ PSM Notes</div>
-        <div style={{fontSize:12,color:C.muted,lineHeight:1.7}}>
-          {account.os==="windows"
-            ?"Windows RDP: Make sure Remote Desktop is enabled on the target machine (System → Remote Desktop → Enable). The downloaded .rdp file can be opened with Remote Desktop Connection on any Windows machine."
-            :"Linux SSH: Use the SSH command above in your terminal. For browser-based SSH access, you can deploy shellinabox or ttyd on the controller machine."}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Retrieve Modal ────────────────────────────────────────────────────────────
+// ── RETRIEVE MODAL ────────────────────────────────────────────────────────────
 function RetrieveModal({account,onClose,onDone}){
+  const {C,S}=React.useContext(ThemeCtx);
   const [code,setCode]=useState("");const [revealed,setRevealed]=useState(null);const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
   async function verify(){
     if(code.length!==6)return;setLoading(true);setErr("");
@@ -497,52 +230,143 @@ function RetrieveModal({account,onClose,onDone}){
     catch(e){setErr(e.message);}finally{setLoading(false);}
   }
   return <div style={S.modal} onClick={e=>e.target===e.currentTarget&&onClose()}>
-    <div style={{...S.modalBox,width:400}}>
-      <div style={{textAlign:"center",marginBottom:16}}>
-        <div style={{fontSize:28,marginBottom:6}}>🔐</div>
-        <div style={{fontSize:14,fontWeight:600}}>Retrieve Credential</div>
-        <div style={{fontSize:12,color:C.muted,marginTop:3}}>{account.username}@{account.hostname}</div>
-      </div>
+    <div style={{...S.modalBox,width:390}}>
+      <div style={{textAlign:"center",marginBottom:14}}><div style={{fontSize:26,marginBottom:5}}>🔐</div><div style={{fontSize:14,fontWeight:600,color:C.text}}>Retrieve Credential</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>{account.username}@{account.hostname}</div></div>
       {!revealed?<>
-        <div style={{background:C.surface2,borderRadius:6,padding:"10px 14px",marginBottom:14,fontSize:12,color:C.muted}}>Enter 6-digit code from <strong style={{color:C.text}}>Microsoft Authenticator</strong>.</div>
+        <div style={{background:C.surface2,borderRadius:6,padding:"9px 13px",marginBottom:13,fontSize:12,color:C.muted}}>Enter 6-digit code from <strong style={{color:C.text}}>Microsoft Authenticator</strong>.</div>
         <F label="Authenticator Code"><input style={{...S.input,fontSize:20,letterSpacing:"0.3em",textAlign:"center"}} value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="000000" maxLength={6} onKeyDown={e=>e.key==="Enter"&&verify()} autoFocus/></F>
-        {err&&<div style={{color:C.danger,fontSize:12,marginBottom:10}}>⚠ {err}</div>}
+        {err&&<div style={{color:DANGER,fontSize:12,marginBottom:9}}>⚠ {err}</div>}
         <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={onClose}>Cancel</Btn><button style={{...S.btn("primary"),flex:1,opacity:(loading||code.length!==6)?0.5:1}} onClick={verify} disabled={loading||code.length!==6}>{loading?"Verifying...":"Verify & Reveal"}</button></div>
       </>:<>
-        <div style={{background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.25)",borderRadius:8,padding:"14px 18px",marginBottom:14}}>
-          <div style={{fontSize:10,color:C.muted,marginBottom:3,textTransform:"uppercase"}}>Username</div>
-          <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:12}}>{revealed.username}</div>
-          <div style={{fontSize:10,color:C.muted,marginBottom:3,textTransform:"uppercase"}}>Current Password</div>
-          <div style={{fontSize:17,fontWeight:700,color:C.success,letterSpacing:"0.05em",wordBreak:"break-all"}}>{revealed.password}</div>
+        <div style={{background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.25)",borderRadius:7,padding:"13px 17px",marginBottom:13}}>
+          <div style={{fontSize:10,color:C.muted,marginBottom:2,textTransform:"uppercase"}}>Username</div>
+          <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:11}}>{revealed.username}</div>
+          <div style={{fontSize:10,color:C.muted,marginBottom:2,textTransform:"uppercase"}}>Current Password</div>
+          <div style={{fontSize:16,fontWeight:700,color:SUCCESS,letterSpacing:"0.05em",wordBreak:"break-all"}}>{revealed.password}</div>
         </div>
-        <div style={{fontSize:11,color:C.dim,marginBottom:14,textAlign:"center"}}>⚠ Retrieval logged in audit trail.</div>
+        <div style={{fontSize:11,color:C.dim,marginBottom:13,textAlign:"center"}}>⚠ Retrieval logged in audit trail.</div>
         <Btn v="ghost" onClick={onClose} style={{width:"100%"}}>Close</Btn>
       </>}
     </div>
   </div>;
 }
 
-// ── Change Password Modal ─────────────────────────────────────────────────────
+// ── PSM CONNECT MODAL ─────────────────────────────────────────────────────────
+function PSMModal({account,onClose}){
+  const {C,S}=React.useContext(ThemeCtx);
+  const [step,setStep]=useState("mfa"); // mfa | connecting | session
+  const [code,setCode]=useState("");const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
+  const [sessData,setSessData]=useState(null);
+  const termRef=useRef(null);const termInstance=useRef(null);
+
+  async function connect(){
+    if(code.length!==6)return;
+    setLoading(true);setErr("");
+    try{
+      const d=await api("POST",`/accounts/${account.id}/psm/connect`,{totp_code:code});
+      setSessData(d);setStep("session");
+    }catch(e){setErr(e.message);}finally{setLoading(false);}
+  }
+
+  useEffect(()=>{
+    if(step==="session"&&sessData&&account.os==="windows"){
+      // For Windows: auto-download RDP file
+      const blob=new Blob([sessData.rdp_content],{type:"text/plain"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a");a.href=url;a.download=`${account.name.replace(/\s+/g,"_")}.rdp`;
+      document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+    }
+    if(step==="session"&&sessData&&account.os==="linux"&&termRef.current&&!termInstance.current){
+      // Initialize xterm terminal
+      try{
+        const term=new Terminal({cursorBlink:true,fontSize:12,fontFamily:"monospace",theme:{background:"#0a0e1a",foreground:"#f1f5f9"},rows:20,cols:80});
+        const fitAddon=new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+        term.open(termRef.current);
+        fitAddon.fit();
+        termInstance.current=term;
+        // Show connection info and instructions
+        term.writeln(`\r\n\x1b[32m  PAM Vault — PSM SSH Session\x1b[0m`);
+        term.writeln(`\x1b[36m  Target:\x1b[0m ${sessData.username}@${sessData.hostname}:${sessData.port}`);
+        term.writeln(`\x1b[36m  Password:\x1b[0m ${sessData.password}`);
+        term.writeln(`\r\n\x1b[33m  Note: Browser-based SSH requires a WebSSH proxy service.\x1b[0m`);
+        term.writeln(`\x1b[33m  Run this command on the controller to start one:\x1b[0m`);
+        term.writeln(`\r\n\x1b[97m  pip install webssh && wssh --port 8888\x1b[0m`);
+        term.writeln(`\r\n  Then open: \x1b[4mhttp://localhost:8888\x1b[0m`);
+        term.writeln(`  Host: ${sessData.hostname}  Port: ${sessData.port}  Username: ${sessData.username}`);
+        term.writeln(`\r\n\x1b[32m  Copy the password above — it is auto-filled above for you.\x1b[0m`);
+        term.writeln(`\r\n\x1b[90m  ─────────────────────────────────────────────────\x1b[0m`);
+        term.writeln(`  SSH command:`);
+        term.writeln(`\x1b[97m  ${sessData.ssh_command}\x1b[0m\r\n`);
+      }catch(e){console.warn("xterm not available",e);}
+    }
+  },[step,sessData]);
+
+  return <div style={{...S.modal,zIndex:1100}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{...S.modalBox,width:account.os==="linux"&&step==="session"?700:440,maxWidth:"95vw"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <div>
+          <div style={{fontSize:14,fontWeight:600,color:C.text}}>PSM Connect — {account.name}</div>
+          <div style={{fontSize:11,color:C.muted}}>{account.os==="windows"?"Remote Desktop (RDP)":"SSH Terminal"} · {account.username}@{account.hostname}</div>
+        </div>
+        <Btn v="ghost" sz="sm" onClick={onClose}>✕</Btn>
+      </div>
+
+      {step==="mfa"&&<>
+        <div style={{background:C.surface2,borderRadius:6,padding:"9px 13px",marginBottom:13,fontSize:12,color:C.muted}}>MFA verification required before opening a privileged session.</div>
+        <F label="Authenticator Code"><input style={{...S.input,fontSize:20,letterSpacing:"0.3em",textAlign:"center"}} value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="000000" maxLength={6} onKeyDown={e=>e.key==="Enter"&&connect()} autoFocus/></F>
+        {err&&<div style={{color:DANGER,fontSize:12,marginBottom:9}}>⚠ {err}</div>}
+        <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={onClose}>Cancel</Btn><button style={{...S.btn("primary"),flex:1,opacity:(loading||code.length!==6)?0.5:1}} onClick={connect} disabled={loading||code.length!==6}>{loading?"Connecting...":"Open Session"}</button></div>
+      </>}
+
+      {step==="session"&&sessData&&account.os==="windows"&&<>
+        <div style={{background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.25)",borderRadius:7,padding:"13px 17px",marginBottom:13}}>
+          <div style={{fontSize:12,color:SUCCESS,marginBottom:10}}>✓ RDP file downloaded. Open it to start your Remote Desktop session.</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            {[["Host",sessData.hostname],["Username",sessData.username],["Password",sessData.password],["Protocol","RDP (port 3389)"]].map(([k,v])=>(
+              <div key={k}><div style={{fontSize:10,color:C.dim,textTransform:"uppercase",marginBottom:2}}>{k}</div><div style={{fontSize:12,color:C.text,wordBreak:"break-all",fontWeight:k==="Password"?700:400,color:k==="Password"?SUCCESS:C.text}}>{v}</div></div>
+            ))}
+          </div>
+        </div>
+        <div style={{fontSize:12,color:C.muted,marginBottom:13}}>The password has been auto-filled in the RDP file. Open <strong style={{color:C.text}}>{account.name.replace(/\s+/g,"_")}.rdp</strong> with Remote Desktop Connection.</div>
+        <div style={{display:"flex",gap:8}}>
+          <button style={{...S.btn("ghost"),flex:1}} onClick={()=>{const blob=new Blob([sessData.rdp_content],{type:"text/plain"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=`${account.name.replace(/\s+/g,"_")}.rdp`;document.body.appendChild(a);a.click();document.body.removeChild(a);}}>↓ Download RDP Again</button>
+          <Btn v="ghost" onClick={onClose} style={{flex:1}}>Close</Btn>
+        </div>
+      </>}
+
+      {step==="session"&&sessData&&account.os==="linux"&&<>
+        <div style={{background:"#0a0e1a",borderRadius:7,padding:4,marginBottom:13,border:"1px solid #1e3a5f"}}>
+          <div ref={termRef} style={{width:"100%",minHeight:320}}/>
+        </div>
+        <div style={{background:C.surface2,borderRadius:6,padding:"9px 13px",fontSize:12,color:C.muted,marginBottom:13}}>
+          Copy the password from the terminal above. For a full browser SSH session, run <code style={{color:ACCENT}}>wssh --port 8888</code> on the controller and open <a href="http://localhost:8888" target="_blank" style={{color:ACCENT}}>localhost:8888</a>.
+        </div>
+        <Btn v="ghost" onClick={onClose} style={{width:"100%"}}>Close</Btn>
+      </>}
+    </div>
+  </div>;
+}
+
+// ── CHANGE PASS MODAL ─────────────────────────────────────────────────────────
 function ChangePassModal({account,onClose,onDone}){
+  const {C,S}=React.useContext(ThemeCtx);
   const [loading,setLoading]=useState(false);const [err,setErr]=useState("");
   async function doChange(){
     setLoading(true);setErr("");
-    try{
-      const d=await api("POST",`/accounts/${account.id}/rotate`);
-      if(d.success) onDone("✓ Password changed successfully and stored in vault.");
-      else setErr("Change failed: "+(d.error||"Unknown error"));
-    }catch(e){setErr(e.message);}finally{setLoading(false);}
+    try{const d=await api("POST",`/accounts/${account.id}/rotate`);if(d.success)onDone("✓ Password changed and stored in vault.");else setErr("Failed: "+(d.error||"Unknown error"));}
+    catch(e){setErr(e.message);}finally{setLoading(false);}
   }
   return <div style={S.modal} onClick={e=>e.target===e.currentTarget&&onClose()}>
-    <div style={{...S.modalBox,width:380}}>
-      <div style={{fontSize:14,fontWeight:600,marginBottom:10}}>Change Password</div>
-      <div style={{fontSize:12,color:C.muted,marginBottom:6}}>Account: <strong style={{color:C.text}}>{account.name}</strong></div>
-      <div style={{fontSize:12,color:C.muted,marginBottom:6}}>Target: <strong style={{color:C.text}}>{account.username}@{account.hostname}</strong></div>
-      <div style={{background:C.surface2,borderRadius:6,padding:"10px 14px",fontSize:12,color:C.muted,marginBottom:18,lineHeight:1.6}}>
-        A new <strong style={{color:C.text}}>{account.password_length}-character</strong> password will be generated, applied on the remote machine via {account.os==="windows"?"WinRM":"SSH"}, verified, and stored in the encrypted vault.
+    <div style={{...S.modalBox,width:370}}>
+      <div style={{fontSize:14,fontWeight:600,marginBottom:10,color:C.text}}>Change Password</div>
+      <div style={{fontSize:12,color:C.muted,marginBottom:4}}><strong style={{color:C.text}}>{account.name}</strong></div>
+      <div style={{fontSize:12,color:C.muted,marginBottom:14}}>{account.username}@{account.hostname}</div>
+      <div style={{background:C.surface2,borderRadius:6,padding:"9px 13px",fontSize:12,color:C.muted,marginBottom:16,lineHeight:1.6}}>
+        A new <strong style={{color:C.text}}>{account.password_length}-char</strong> password will be generated, applied via {account.os==="windows"?"WinRM":"SSH"}, verified, and stored encrypted.
       </div>
-      {!account.auto_management&&<div style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:6,padding:"10px 14px",fontSize:12,color:C.danger,marginBottom:14}}>⚠ Automatic management is disabled for this account.</div>}
-      {err&&<div style={{color:C.danger,fontSize:12,marginBottom:12}}>⚠ {err}</div>}
+      {!account.auto_management&&<div style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:6,padding:"9px 13px",fontSize:12,color:DANGER,marginBottom:13}}>⚠ Automatic management is disabled for this account.</div>}
+      {err&&<div style={{color:DANGER,fontSize:12,marginBottom:11}}>⚠ {err}</div>}
       <div style={{display:"flex",gap:8}}>
         <Btn v="ghost" onClick={onClose}>Cancel</Btn>
         <button style={{...S.btn("warning"),flex:1,opacity:loading?0.7:1}} onClick={doChange} disabled={loading}>{loading?"Changing...":"Change Password Now"}</button>
@@ -551,32 +375,28 @@ function ChangePassModal({account,onClose,onDone}){
   </div>;
 }
 
-// ── Account Edit Modal ────────────────────────────────────────────────────────
+// ── ACCOUNT EDIT MODAL ────────────────────────────────────────────────────────
 const PRESETS={"Windows 10":{os:"windows",port:5985},"Windows Server":{os:"windows",port:5985},"Linux":{os:"linux",port:22},"Ubuntu":{os:"linux",port:22},"Custom":{os:"linux",port:22}};
 function AccountEditModal({account,onSave,onClose}){
+  const {C,S}=React.useContext(ThemeCtx);
+  const isAdd=!account?.id;
   const [form,setForm]=useState({
     name:account?.name||"",hostname:account?.hostname||"",username:account?.username||"",
     os:account?.os||"linux",port:account?.port||22,description:account?.description||"",
     password_length:account?.password_length||15,preset:account?.preset||"Custom",
-    auto_management:account?.auto_management!==false,disable_reason:account?.disable_reason||"",
-    password:""
+    auto_management:account?.auto_management!==false,disable_reason:account?.disable_reason||"",password:""
   });
   const [loading,setLoading]=useState(false);const [err,setErr]=useState("");
   async function save(){
     if(!form.name||!form.hostname||!form.username){setErr("Name, hostname and username required.");return;}
-    setLoading(true);setErr("");
-    try{await onSave(form);}catch(e){setErr(e.message);}finally{setLoading(false);}
+    setLoading(true);setErr("");try{await onSave(form);}catch(e){setErr(e.message);}finally{setLoading(false);}
   }
-  const isAdd=!account?.id;
   return <div style={S.modal} onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div style={{...S.modalBox,width:520}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18}}>
-        <div style={{fontSize:14,fontWeight:600}}>{isAdd?"Add Account":"Edit Account"}</div>
-        <Btn v="ghost" sz="sm" onClick={onClose}>✕</Btn>
-      </div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><div style={{fontSize:14,fontWeight:600,color:C.text}}>{isAdd?"Add Account":"Edit Account"}</div><Btn v="ghost" sz="sm" onClick={onClose}>✕</Btn></div>
       {isAdd&&<F label="Preset Template"><div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:4}}>
         {Object.entries(PRESETS).map(([k,v])=>(
-          <button key={k} onClick={()=>setForm(f=>({...f,os:v.os,port:v.port,preset:k}))} style={{padding:"4px 10px",borderRadius:5,border:`1px solid ${form.preset===k?C.accent:C.border}`,background:form.preset===k?"rgba(14,165,233,0.12)":C.surface2,color:form.preset===k?C.accent:C.muted,cursor:"pointer",fontSize:11}}>{k}</button>
+          <button key={k} onClick={()=>setForm(f=>({...f,os:v.os,port:v.port,preset:k}))} style={{padding:"3px 9px",borderRadius:4,border:`1px solid ${form.preset===k?ACCENT:C.border}`,background:form.preset===k?"rgba(14,165,233,0.12)":C.surface2,color:form.preset===k?ACCENT:C.muted,cursor:"pointer",fontSize:11}}>{k}</button>
         ))}
       </div></F>}
       <div style={{display:"flex",flexWrap:"wrap",gap:"0 12px"}}>
@@ -591,123 +411,255 @@ function AccountEditModal({account,onSave,onClose}){
       </div>
       <F label="Description"><input style={S.input} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="Optional notes"/></F>
       {isAdd&&<F label="Initial Password (leave blank to auto-generate)"><input style={S.input} value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))} placeholder={`Auto-generates ${form.password_length}-char password`}/></F>}
-
-      {/* Disable automatic management */}
-      <div style={{background:C.surface2,borderRadius:7,padding:"12px 14px",marginBottom:14}}>
+      <div style={{background:C.surface2,borderRadius:7,padding:"11px 13px",marginBottom:13}}>
         <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",userSelect:"none"}}>
           <input type="checkbox" checked={!form.auto_management} onChange={e=>setForm(f=>({...f,auto_management:!e.target.checked}))}/>
           <span style={{fontSize:12,color:C.text}}>Disable automatic management for this account</span>
         </label>
-        {!form.auto_management&&<div style={{marginTop:10}}>
+        {!form.auto_management&&<div style={{marginTop:9}}>
           <label style={S.label}>Reason</label>
           <input style={S.input} value={form.disable_reason} onChange={e=>setForm(f=>({...f,disable_reason:e.target.value}))} placeholder="e.g. Service account — manual rotation only"/>
         </div>}
       </div>
-
-      {err&&<div style={{color:C.danger,fontSize:12,marginBottom:12}}>⚠ {err}</div>}
-      <div style={{display:"flex",gap:8}}>
-        <Btn v="ghost" onClick={onClose}>Cancel</Btn>
-        <button style={{...S.btn("primary"),flex:1,opacity:loading?0.7:1}} onClick={save} disabled={loading}>{loading?"Saving...":isAdd?"Add Account":"Save Changes"}</button>
-      </div>
+      {err&&<div style={{color:DANGER,fontSize:12,marginBottom:11}}>⚠ {err}</div>}
+      <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={onClose}>Cancel</Btn><button style={{...S.btn("primary"),flex:1,opacity:loading?0.7:1}} onClick={save} disabled={loading}>{loading?"Saving...":isAdd?"Add Account":"Save Changes"}</button></div>
     </div>
   </div>;
 }
 
-// ── ACCOUNT VAULT PAGE ────────────────────────────────────────────────────────
-function AccountsPage({cart,setCart,isReadOnly,onOpenAccount}){
+// ── ACCOUNT DETAIL PAGE ────────────────────────────────────────────────────────
+function AccountDetailPage({account:initAcc,onBack,isReadOnly}){
+  const {C,S}=React.useContext(ThemeCtx);
+  const [acc,setAcc]=useState(initAcc);
+  const [tab,setTab]=useState("cpm");
+  const [logs,setLogs]=useState([]);const [logsLoading,setLogsLoading]=useState(true);
+  const [showEdit,setShowEdit]=useState(false);const [showRetrieve,setShowRetrieve]=useState(false);
+  const [showChangePass,setShowChangePass]=useState(false);const [showPSM,setShowPSM]=useState(false);
+  const [verifying,setVerifying]=useState(false);const [actionMsg,setActionMsg]=useState(null);
+
+  async function loadLogs(){setLogsLoading(true);try{const d=await api("GET",`/logs?account_id=${acc.id}`);setLogs(d);}catch(e){}finally{setLogsLoading(false);}}
+  async function refreshAcc(){try{const d=await api("GET","/accounts");const u=d.find(a=>a.id===acc.id);if(u)setAcc(u);}catch(e){}}
+  useEffect(()=>{loadLogs();},[acc.id]);
+
+  async function doVerify(){
+    setVerifying(true);setActionMsg(null);
+    try{const d=await api("POST",`/accounts/${acc.id}/verify`);setActionMsg({type:d.success?"success":"error",text:d.success?"✓ Verification successful.":"✗ Failed: "+(d.error||d.code)});await refreshAcc();await loadLogs();}
+    catch(e){setActionMsg({type:"error",text:"Error: "+e.message});}finally{setVerifying(false);}
+  }
+
+  const typeColor={success:SUCCESS,error:DANGER,warning:WARNING,info:ACCENT};
+  const statusBadge=a=>{if(!a.auto_management)return"disabled";if(a.status==="never_verified")return"info";return a.status==="active"?"success":a.status==="error"?"danger":"warning";};
+  const statusLabel=a=>{if(!a.auto_management)return"Mgmt Disabled";if(a.status==="never_verified")return"Never Verified";return a.status;};
+  const cpmLogs=logs.filter(l=>l.code?.match(/ROT_|VERIFY_|POSTVERIFY_|PREVERIFY_/));
+  const lastCPM=cpmLogs[0];
+
+  return(
+    <div style={{display:"flex",gap:0,minHeight:"calc(100vh - 56px)"}}>
+      {/* Left */}
+      <div style={{width:290,minWidth:270,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",overflowY:"auto"}}>
+        <div style={{padding:"14px 16px",borderBottom:`1px solid ${C.border}`}}>
+          <button onClick={onBack} style={{...S.btn("ghost","sm"),marginBottom:10,paddingLeft:0,color:C.muted}}>← Back</button>
+          <div style={{fontSize:15,fontWeight:700,color:C.text,marginBottom:2}}>{acc.name}</div>
+          <div style={{fontSize:11,color:C.muted,marginBottom:6}}>{acc.username}@{acc.hostname}</div>
+          <span style={S.badge(statusBadge(acc))}>{statusLabel(acc)}</span>
+        </div>
+        <div style={{padding:"10px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",flexDirection:"column",gap:5}}>
+          <Btn v="primary" sz="sm" onClick={()=>setShowRetrieve(true)} style={{width:"100%",textAlign:"center"}}>🔑 Retrieve Credential</Btn>
+          {!isReadOnly&&<>
+            <Btn v="ghost" sz="sm" onClick={doVerify} disabled={verifying} style={{width:"100%",textAlign:"center"}}>{verifying?"⟳ Verifying...":"✓ Verify Password"}</Btn>
+            <Btn v="warning" sz="sm" onClick={()=>setShowChangePass(true)} style={{width:"100%",textAlign:"center"}}>🔄 Change Password</Btn>
+            <Btn v="ghost" sz="sm" onClick={()=>setShowPSM(true)} style={{width:"100%",textAlign:"center"}}>🖥 PSM Connect</Btn>
+            <Btn v="ghost" sz="sm" onClick={()=>setShowEdit(true)} style={{width:"100%",textAlign:"center"}}>✏️ Edit Account</Btn>
+          </>}
+          {isReadOnly&&<Btn v="ghost" sz="sm" onClick={()=>setShowPSM(true)} style={{width:"100%",textAlign:"center"}}>🖥 PSM Connect</Btn>}
+        </div>
+        {actionMsg&&<div style={{margin:"8px 16px",background:actionMsg.type==="success"?"rgba(16,185,129,0.08)":"rgba(239,68,68,0.08)",border:`1px solid ${actionMsg.type==="success"?"rgba(16,185,129,0.25)":"rgba(239,68,68,0.25)"}`,borderRadius:5,padding:"7px 11px",fontSize:12,color:actionMsg.type==="success"?SUCCESS:DANGER}}>{actionMsg.text}</div>}
+        <div style={{padding:"12px 16px",flex:1}}>
+          {[["OS",acc.os==="windows"?"Windows":"Linux"],["Address",acc.hostname],["Port",acc.port],["Username",acc.username],["Password Length",`${acc.password_length} chars`],["Last Verified",acc.last_verified?new Date(acc.last_verified).toLocaleString():"Never"],["Last Changed",acc.last_rotated?new Date(acc.last_rotated).toLocaleString():"Never"],["Auto Management",acc.auto_management?"Enabled":"Disabled"],["Description",acc.description||"—"]].map(([k,v])=>(
+            <div key={k} style={{marginBottom:9,paddingBottom:9,borderBottom:`1px solid ${C.border}44`}}>
+              <div style={{fontSize:10,color:C.dim,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:1}}>{k}</div>
+              <div style={{fontSize:12,color:C.text,wordBreak:"break-all"}}>{v}</div>
+            </div>
+          ))}
+          {!acc.auto_management&&acc.disable_reason&&<div style={{background:C.surface2,borderRadius:5,padding:"7px 10px",fontSize:12,color:C.muted}}><div style={{fontSize:10,color:C.dim,marginBottom:2}}>DISABLE REASON</div>{acc.disable_reason}</div>}
+        </div>
+      </div>
+
+      {/* Right */}
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,background:C.surface,paddingLeft:16}}>
+          {[["cpm","CPM"],["activities","Activities"],["psm","PSM Connect"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setTab(k)} style={{padding:"10px 16px",border:"none",background:"transparent",color:tab===k?ACCENT:C.muted,borderBottom:tab===k?`2px solid ${ACCENT}`:"2px solid transparent",cursor:"pointer",fontSize:12,fontWeight:tab===k?600:400}}>{l}</button>
+          ))}
+          <div style={{flex:1}}/><button onClick={()=>{loadLogs();refreshAcc();}} style={{...S.btn("ghost","sm"),margin:"6px 12px",fontSize:11}}>↻ Refresh</button>
+        </div>
+
+        {tab==="cpm"&&<div style={{flex:1,overflowY:"auto",padding:18}}>
+          <div style={{fontSize:13,fontWeight:600,marginBottom:13,color:C.text}}>Central Password Manager</div>
+          <div style={{...S.card,borderColor:lastCPM?.type==="error"?DANGER:lastCPM?.type==="success"?SUCCESS:C.border}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:11}}>
+              <span style={{fontSize:18}}>{!acc.auto_management?"⛔":acc.status==="never_verified"?"🕐":lastCPM?.type==="error"?"⚠️":lastCPM?.type==="success"?"✅":"ℹ️"}</span>
+              <div>
+                <div style={{fontWeight:600,fontSize:13,color:C.text}}>
+                  {!acc.auto_management?"Automatic Management Disabled":acc.status==="never_verified"?"Awaiting First Verification":lastCPM?.type==="error"?"CPM Error":lastCPM?.type==="success"?"CPM Success":"No Recent Activity"}
+                </div>
+                {lastCPM&&<div style={{fontSize:11,color:C.dim,marginTop:2}}>{new Date(lastCPM.timestamp).toLocaleString()}</div>}
+              </div>
+              {lastCPM&&<span style={{...S.badge(lastCPM.type==="success"?"success":"danger"),marginLeft:"auto"}}>{lastCPM.code}</span>}
+            </div>
+            {acc.status==="never_verified"&&<div style={{fontSize:12,color:C.muted}}>This account was just deposited. Please verify manually to activate CPM management. No automatic rotation will occur until the first manual verification.</div>}
+            {!acc.auto_management&&<div style={{fontSize:12,color:C.muted}}>Automatic password rotation is disabled for this account.{acc.disable_reason?" Reason: "+acc.disable_reason:""}</div>}
+            {lastCPM&&<div style={{fontSize:12,color:lastCPM.type==="error"?DANGER:C.muted,background:C.surface2,borderRadius:5,padding:"7px 11px",marginTop:8}}>{lastCPM.message}</div>}
+          </div>
+          <div style={{fontSize:11,fontWeight:600,color:C.muted,marginBottom:9,textTransform:"uppercase",letterSpacing:"0.08em"}}>Recent CPM Events</div>
+          {logsLoading?<div style={{color:C.dim,fontSize:12}}>Loading...</div>:cpmLogs.length===0?<div style={{color:C.dim,fontSize:12}}>No CPM events yet.</div>:
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {cpmLogs.slice(0,10).map((l,i)=>(
+              <div key={i} style={{background:C.surface2,borderRadius:5,padding:"9px 13px",borderLeft:`3px solid ${typeColor[l.type]||C.border}`}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                  <span style={{fontSize:11,color:typeColor[l.type]||C.muted,fontWeight:600}}>{l.code}</span>
+                  <span style={{fontSize:10,color:C.dim,marginLeft:"auto"}}>{new Date(l.timestamp).toLocaleString()}</span>
+                </div>
+                <div style={{fontSize:12,color:l.type==="error"?DANGER:C.text}}>{l.message}</div>
+                {l.user&&<div style={{fontSize:10,color:C.dim,marginTop:2}}>by {l.user}</div>}
+              </div>
+            ))}
+          </div>}
+        </div>}
+
+        {tab==="activities"&&<div style={{flex:1,overflowY:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead style={{position:"sticky",top:0,zIndex:1}}>
+              <tr><th style={S.th}>Time</th><th style={S.th}>User</th><th style={S.th}>Action</th><th style={S.th}>Status</th><th style={S.th}>More Info</th></tr>
+            </thead>
+            <tbody>
+              {logsLoading&&<tr><td colSpan={5} style={{...S.td,textAlign:"center",color:C.dim,padding:28}}>Loading...</td></tr>}
+              {!logsLoading&&logs.length===0&&<tr><td colSpan={5} style={{...S.td,textAlign:"center",color:C.dim,padding:28}}>No activity yet.</td></tr>}
+              {logs.map((l,i)=>(
+                <tr key={i} style={{background:i%2===0?"transparent":C.surface3}}>
+                  <td style={{...S.td,fontSize:10,color:C.dim,whiteSpace:"nowrap"}}>{new Date(l.timestamp).toLocaleString('en-GB',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:3})}</td>
+                  <td style={{...S.td,color:C.muted}}>{l.user||"system"}</td>
+                  <td style={{...S.td,color:C.text,fontFamily:"monospace",fontSize:11}}>{l.code}</td>
+                  <td style={S.td}><span style={S.badge(l.type==="success"?"success":l.type==="error"?"danger":l.type==="warning"?"warning":"info")}>{l.type}</span></td>
+                  <td style={{...S.td,color:l.type==="error"?DANGER:C.muted,fontSize:11,maxWidth:280}}>{l.message}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>}
+
+        {tab==="psm"&&<div style={{flex:1,overflowY:"auto",padding:20}}>
+          <div style={{fontSize:13,fontWeight:600,marginBottom:6,color:C.text}}>PSM Connect</div>
+          <div style={{fontSize:12,color:C.muted,marginBottom:18}}>{acc.os==="windows"?"Launch a Remote Desktop session.":"Launch an interactive SSH session."}</div>
+          <div style={{...S.card}}>
+            <div style={{display:"flex",flexWrap:"wrap",gap:16,marginBottom:16}}>
+              {[["Target",acc.hostname],["Protocol",acc.os==="windows"?"RDP (3389)":"SSH ("+acc.port+")"],["Username",acc.username]].map(([k,v])=>(
+                <div key={k}><div style={{fontSize:10,color:C.dim,textTransform:"uppercase",marginBottom:2}}>{k}</div><div style={{fontSize:12,color:C.text}}>{v}</div></div>
+              ))}
+            </div>
+            <Btn v="primary" onClick={()=>setShowPSM(true)} style={{marginBottom:12}}>▶ Open PSM Session (MFA Required)</Btn>
+            <div style={{fontSize:12,color:C.muted,lineHeight:1.7}}>
+              {acc.os==="windows"?"PSM will download an RDP file pre-configured with your credentials. Open it with Remote Desktop Connection.":"PSM will open an SSH terminal with your credentials pre-loaded."}
+            </div>
+          </div>
+        </div>}
+      </div>
+
+      {showRetrieve&&<RetrieveModal account={acc} onClose={()=>setShowRetrieve(false)} onDone={loadLogs}/>}
+      {showChangePass&&<ChangePassModal account={acc} onClose={()=>{setShowChangePass(false);refreshAcc();loadLogs();}} onDone={msg=>{setActionMsg({type:"success",text:msg});setShowChangePass(false);refreshAcc();loadLogs();}}/>}
+      {showEdit&&<AccountEditModal account={acc} onSave={async form=>{await api("PUT",`/accounts/${acc.id}`,form);setShowEdit(false);refreshAcc();}} onClose={()=>setShowEdit(false)}/>}
+      {showPSM&&<PSMModal account={acc} onClose={()=>setShowPSM(false)}/>}
+    </div>
+  );
+}
+
+// ── ACCOUNT VAULT PAGE ─────────────────────────────────────────────────────────
+function AccountsPage({cart,setCart,selected,setSelected,isReadOnly,onOpenAccount}){
+  const {C,S}=React.useContext(ThemeCtx);
   const [accounts,setAccounts]=useState([]);const [showAdd,setShowAdd]=useState(false);const [deleteAcc,setDeleteAcc]=useState(null);const [search,setSearch]=useState("");const [loading,setLoading]=useState(true);
-  const [bulkAction,setBulkAction]=useState(null);const [bulkLoading,setBulkLoading]=useState(false);const [bulkResults,setBulkResults]=useState(null);
+  const [bulkLoading,setBulkLoading]=useState(false);const [bulkResults,setBulkResults]=useState(null);
+  const [actionMsg,setActionMsg]=useState(null);
 
   async function load(){setLoading(true);try{const d=await api("GET","/accounts");setAccounts(d);}catch(e){}finally{setLoading(false);}}
   useEffect(()=>{load();},[]);
 
   async function addAccount(form){await api("POST","/accounts",form);setShowAdd(false);load();}
-  async function deleteAccount(acc){await api("DELETE",`/accounts/${acc.id}`);setCart(p=>p.filter(id=>id!==acc.id));setDeleteAcc(null);load();}
+  async function deleteAccount(acc){await api("DELETE",`/accounts/${acc.id}`);setSelected(p=>p.filter(id=>id!==acc.id));setCart(p=>p.filter(id=>id!==acc.id));setDeleteAcc(null);load();}
 
   async function doBulkVerify(){
-    setBulkLoading(true);setBulkResults(null);
-    try{const d=await api("POST","/accounts/bulk/verify",{account_ids:cart});setBulkResults(d);load();}
-    catch(e){alert(e.message);}finally{setBulkLoading(false);}
+    if(selected.length===0)return;setBulkLoading(true);setBulkResults(null);setActionMsg(null);
+    try{const d=await api("POST","/accounts/bulk/verify",{account_ids:selected});setBulkResults(d);setActionMsg({type:"info",text:`Verified ${selected.length} account(s).`});}
+    catch(e){setActionMsg({type:"error",text:e.message});}finally{setBulkLoading(false);load();}
   }
-  async function doBulkChangePass(){
-    setBulkLoading(true);setBulkResults(null);
-    const results=[];
-    for(const aid of cart){
-      try{const d=await api("POST",`/accounts/${aid}/rotate`);results.push({id:aid,success:d.success,error:d.error});}
-      catch(e){results.push({id:aid,success:false,error:e.message});}
-    }
-    setBulkResults(results.map(r=>({...r,name:accounts.find(a=>a.id===r.id)?.name||r.id})));
-    setBulkLoading(false);load();
+  async function doBulkChange(){
+    if(selected.length===0)return;setBulkLoading(true);setBulkResults(null);setActionMsg(null);
+    try{const d=await api("POST","/accounts/bulk/rotate",{account_ids:selected});setBulkResults(d);setActionMsg({type:"info",text:`Changed passwords for ${selected.length} account(s).`});}
+    catch(e){setActionMsg({type:"error",text:e.message});}finally{setBulkLoading(false);load();}
   }
+  function addSelectedToCart(){setCart(p=>[...new Set([...p,...selected])]);setActionMsg({type:"success",text:`Added ${selected.length} account(s) to cart.`});}
 
   const filtered=accounts.filter(a=>a.name.toLowerCase().includes(search.toLowerCase())||a.hostname.includes(search)||a.username.toLowerCase().includes(search.toLowerCase()));
-  const toggleCart=id=>setCart(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
-  const allSelected=filtered.length>0&&filtered.every(a=>cart.includes(a.id));
-  const toggleAll=()=>allSelected?setCart(p=>p.filter(id=>!filtered.find(a=>a.id===id))):setCart(p=>[...new Set([...p,...filtered.map(a=>a.id)])]);
+  const toggleSel=id=>setSelected(p=>p.includes(id)?p.filter(x=>x!==id):[...p,id]);
+  const allSel=filtered.length>0&&filtered.every(a=>selected.includes(a.id));
+  const toggleAll=()=>allSel?setSelected(p=>p.filter(id=>!filtered.find(a=>a.id===id))):setSelected(p=>[...new Set([...p,...filtered.map(a=>a.id)])]);
 
-  const statusBadge=acc=>{if(!acc.auto_management)return "disabled";return acc.status==="active"?"success":acc.status==="error"?"danger":"warning";};
-  const statusLabel=acc=>{if(!acc.auto_management)return "Mgmt Disabled";return acc.status;};
+  const statusBadge=a=>{if(!a.auto_management)return"disabled";if(a.status==="never_verified")return"info";return a.status==="active"?"success":a.status==="error"?"danger":"warning";};
+  const statusLabel=a=>{if(!a.auto_management)return"Mgmt Disabled";if(a.status==="never_verified")return"Never Verified";return a.status;};
   const osIcon=os=>os==="windows"?"🪟":"🐧";
 
   return(
     <div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
-        <div><div style={{fontSize:18,fontWeight:700}}>Account Vault</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>{accounts.length} accounts</div></div>
-        <div style={{display:"flex",gap:8}}>
-          <input style={{...S.input,width:190}} placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)}/>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+        <div><div style={{fontSize:18,fontWeight:700,color:C.text}}>Account Vault</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>{accounts.length} accounts</div></div>
+        <div style={{display:"flex",gap:7}}>
+          <input style={{...S.input,width:180}} placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)}/>
           {!isReadOnly&&<Btn v="primary" onClick={()=>setShowAdd(true)}>+ Add Account</Btn>}
         </div>
       </div>
 
-      {isReadOnly&&<div style={{background:"rgba(245,158,11,0.06)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:7,padding:"8px 14px",marginBottom:12,fontSize:12,color:C.warning}}>👁 Read-only — you can view and retrieve credentials but cannot add, edit, delete or rotate.</div>}
+      {isReadOnly&&<div style={{background:"rgba(245,158,11,0.06)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:7,padding:"7px 13px",marginBottom:12,fontSize:12,color:WARNING}}>👁 Read-only — view and retrieve credentials only. Cannot add, edit, delete or rotate.</div>}
 
-      {/* Cart action bar */}
-      {cart.length>0&&<div style={{background:"rgba(14,165,233,0.06)",border:"1px solid rgba(14,165,233,0.2)",borderRadius:7,padding:"10px 14px",marginBottom:12}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-          <span style={{fontSize:12,color:C.accent,fontWeight:500}}>🛒 {cart.length} selected</span>
-          <div style={{display:"flex",gap:6,marginLeft:8}}>
-            {!isReadOnly&&<Btn v="ghost" sz="sm" onClick={()=>setShowAdd(false)||cart.forEach(id=>{const a=accounts.find(x=>x.id===id);if(a)onOpenAccount(a);})} style={{background:C.surface2,color:C.text}}>✏️ Edit Selected</Btn>}
-            {!isReadOnly&&<Btn v="default" sz="sm" onClick={doBulkVerify} disabled={bulkLoading} style={{background:C.surface2,color:C.text}}>✓ Verify All</Btn>}
-            {!isReadOnly&&<Btn v="warning" sz="sm" onClick={doBulkChangePass} disabled={bulkLoading}>🔄 Change All Passwords</Btn>}
+      {/* Selection action bar */}
+      {selected.length>0&&<div style={{background:`${ACCENT}10`,border:`1px solid ${ACCENT}33`,borderRadius:7,padding:"9px 13px",marginBottom:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+          <span style={{fontSize:12,color:ACCENT,fontWeight:500}}>{selected.length} selected</span>
+          <div style={{display:"flex",gap:6,marginLeft:6,flexWrap:"wrap"}}>
+            <Btn v="ghost" sz="sm" onClick={addSelectedToCart} style={{background:C.surface2,color:C.text}}>🛒 Add to Cart</Btn>
+            {!isReadOnly&&<Btn v="ghost" sz="sm" onClick={doBulkVerify} disabled={bulkLoading} style={{background:C.surface2,color:C.text}}>✓ Verify All</Btn>}
+            {!isReadOnly&&<Btn v="warning" sz="sm" onClick={doBulkChange} disabled={bulkLoading}>🔄 Change Passwords</Btn>}
             <Btn v="ghost" sz="sm" onClick={load}>↻ Refresh</Btn>
-            <Btn v="ghost" sz="sm" onClick={()=>setCart([])} style={{color:C.dim}}>✕ Clear</Btn>
+            <Btn v="ghost" sz="sm" onClick={()=>setSelected([])} style={{color:C.dim}}>✕ Deselect</Btn>
           </div>
           {bulkLoading&&<span style={{fontSize:11,color:C.muted}}>⟳ Processing...</span>}
         </div>
-        {bulkResults&&<div style={{marginTop:10,display:"flex",flexWrap:"wrap",gap:6}}>
-          {bulkResults.map((r,i)=><span key={i} style={{...S.badge(r.success?"success":"danger"),fontSize:11}}>{r.name}: {r.success?"OK":r.error||"Failed"}</span>)}
+        {bulkResults&&<div style={{marginTop:9,display:"flex",flexWrap:"wrap",gap:5}}>
+          {bulkResults.map((r,i)=><span key={i} style={{...S.badge(r.success?"success":"danger"),fontSize:11}}>{r.name}: {r.success?"✓ OK":"✗ "+(r.error||"Failed")}</span>)}
         </div>}
+        {actionMsg&&<div style={{marginTop:7,fontSize:12,color:actionMsg.type==="success"?SUCCESS:actionMsg.type==="error"?DANGER:ACCENT}}>{actionMsg.text}</div>}
       </div>}
 
       <div style={{...S.card,padding:0,overflow:"hidden"}}>
-        {loading?<div style={{padding:36,textAlign:"center",color:C.dim}}>Loading...</div>:
+        {loading?<div style={{padding:32,textAlign:"center",color:C.dim}}>Loading...</div>:
         <table style={{width:"100%",borderCollapse:"collapse"}}>
           <thead><tr>
-            <th style={{...S.th,width:36}}><input type="checkbox" checked={allSelected} onChange={toggleAll}/></th>
-            <th style={S.th}>Account Name</th>
-            <th style={S.th}>Address</th>
-            <th style={S.th}>Username</th>
-            <th style={S.th}>OS</th>
-            <th style={S.th}>Status</th>
-            <th style={S.th}>Last Verified</th>
-            <th style={S.th}>Last Changed</th>
-            {!isReadOnly&&<th style={S.th}>Actions</th>}
+            <th style={{...S.th,width:36}}><input type="checkbox" checked={allSel} onChange={toggleAll}/></th>
+            <th style={S.th}>Account Name</th><th style={S.th}>Address</th><th style={S.th}>Username</th>
+            <th style={S.th}>OS</th><th style={S.th}>Status</th><th style={S.th}>Last Verified</th><th style={S.th}>Last Changed</th>
+            {!isReadOnly&&<th style={S.th}>Del</th>}
           </tr></thead>
           <tbody>
-            {filtered.length===0&&<tr><td colSpan={9} style={{...S.td,textAlign:"center",color:C.dim,padding:36}}>{accounts.length===0?"No accounts. Click '+ Add Account' to start.":"No results."}</td></tr>}
+            {filtered.length===0&&<tr><td colSpan={9} style={{...S.td,textAlign:"center",color:C.dim,padding:32}}>{accounts.length===0?"No accounts. Click '+ Add Account' to start.":"No results."}</td></tr>}
             {filtered.map(acc=>(
-              <tr key={acc.id} style={{background:cart.includes(acc.id)?"rgba(14,165,233,0.04)":"transparent",cursor:"pointer"}} onClick={e=>{if(e.target.type==="checkbox"||e.target.closest("button"))return;onOpenAccount(acc);}}>
-                <td style={{...S.td,width:36}} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={cart.includes(acc.id)} onChange={()=>toggleCart(acc.id)}/></td>
-                <td style={S.td}><div style={{fontWeight:500,color:C.accent}}>{acc.name}</div></td>
+              <tr key={acc.id} style={{background:selected.includes(acc.id)?`${ACCENT}08`:"transparent",cursor:"pointer"}} onClick={e=>{if(e.target.type==="checkbox"||e.target.closest("button"))return;onOpenAccount(acc);}}>
+                <td style={{...S.td,width:36}} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={selected.includes(acc.id)} onChange={()=>toggleSel(acc.id)}/></td>
+                <td style={S.td}><div style={{fontWeight:500,color:ACCENT}}>{acc.name}</div></td>
                 <td style={{...S.td,color:C.muted}}>{acc.hostname}:{acc.port}</td>
                 <td style={{...S.td,color:C.muted}}>{acc.username}</td>
                 <td style={S.td}>{osIcon(acc.os)} {acc.os}</td>
                 <td style={S.td}><span style={S.badge(statusBadge(acc))}>{statusLabel(acc)}</span></td>
                 <td style={{...S.td,fontSize:11,color:C.dim}}>{acc.last_verified?new Date(acc.last_verified).toLocaleString():"Never"}</td>
                 <td style={{...S.td,fontSize:11,color:C.dim}}>{acc.last_rotated?new Date(acc.last_rotated).toLocaleString():"Never"}</td>
-                {!isReadOnly&&<td style={S.td} onClick={e=>e.stopPropagation()}>
-                  <Btn v="ghost" sz="sm" onClick={()=>setDeleteAcc(acc)} style={{color:C.danger}}>🗑</Btn>
-                </td>}
+                {!isReadOnly&&<td style={S.td} onClick={e=>e.stopPropagation()}><Btn v="ghost" sz="sm" onClick={()=>setDeleteAcc(acc)} style={{color:DANGER}}>🗑</Btn></td>}
               </tr>
             ))}
           </tbody>
@@ -715,75 +667,162 @@ function AccountsPage({cart,setCart,isReadOnly,onOpenAccount}){
       </div>
 
       {showAdd&&<AccountEditModal account={null} onSave={addAccount} onClose={()=>setShowAdd(false)}/>}
-      {deleteAcc&&<Confirm title="Delete Account" msg={`Delete "${deleteAcc.name}"? The stored credential will be permanently removed from the vault.`} onConfirm={()=>deleteAccount(deleteAcc)} onCancel={()=>setDeleteAcc(null)}/>}
+      {deleteAcc&&<Confirm title="Delete Account" msg={`Delete "${deleteAcc.name}"? The stored credential will be permanently removed.`} onConfirm={()=>deleteAccount(deleteAcc)} onCancel={()=>setDeleteAcc(null)}/>}
     </div>
   );
 }
 
-// ── VAULT USERS PAGE ──────────────────────────────────────────────────────────
+// ── CART PAGE ──────────────────────────────────────────────────────────────────
+function CartPage({cart,setCart,isReadOnly,onOpenAccount}){
+  const {C,S}=React.useContext(ThemeCtx);
+  const [accounts,setAccounts]=useState([]);const [loading,setLoading]=useState(true);
+  const [bulkLoading,setBulkLoading]=useState(false);const [bulkResults,setBulkResults]=useState(null);
+  const [actionMsg,setActionMsg]=useState(null);
+
+  async function load(){setLoading(true);try{const d=await api("GET","/accounts");setAccounts(d.filter(a=>cart.includes(a.id)));}catch(e){}finally{setLoading(false);}}
+  useEffect(()=>{load();},[cart.length]);
+
+  async function doBulkVerify(){setBulkLoading(true);setBulkResults(null);setActionMsg(null);try{const d=await api("POST","/accounts/bulk/verify",{account_ids:cart});setBulkResults(d);setActionMsg({type:"info",text:"Verification complete."});}catch(e){setActionMsg({type:"error",text:e.message});}finally{setBulkLoading(false);load();}}
+  async function doBulkChange(){setBulkLoading(true);setBulkResults(null);setActionMsg(null);try{const d=await api("POST","/accounts/bulk/rotate",{account_ids:cart});setBulkResults(d);setActionMsg({type:"info",text:"Password change complete."});}catch(e){setActionMsg({type:"error",text:e.message});}finally{setBulkLoading(false);load();}}
+
+  if(cart.length===0) return(
+    <div><div style={{fontSize:18,fontWeight:700,color:C.text,marginBottom:6}}>Cart</div>
+    <div style={{...S.card,textAlign:"center",padding:36,color:C.dim}}><div style={{fontSize:24,marginBottom:8}}>🛒</div><div>Cart is empty — go to Account Vault, select accounts, and click "Add to Cart".</div></div></div>
+  );
+
+  const statusBadge=a=>{if(!a.auto_management)return"disabled";if(a.status==="never_verified")return"info";return a.status==="active"?"success":a.status==="error"?"danger":"warning";};
+  const statusLabel=a=>{if(!a.auto_management)return"Mgmt Disabled";if(a.status==="never_verified")return"Never Verified";return a.status;};
+
+  return(
+    <div>
+      <div style={{fontSize:18,fontWeight:700,color:C.text,marginBottom:4}}>Cart</div>
+      <div style={{fontSize:12,color:C.muted,marginBottom:14}}>{cart.length} account{cart.length!==1?"s":""} · session-only (cleared on logout)</div>
+      <div style={{display:"flex",gap:7,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+        {!isReadOnly&&<Btn v="ghost" onClick={doBulkVerify} disabled={bulkLoading} style={{background:C.surface2,color:C.text}}>✓ Verify All</Btn>}
+        {!isReadOnly&&<Btn v="warning" onClick={doBulkChange} disabled={bulkLoading}>🔄 Change All Passwords</Btn>}
+        <Btn v="ghost" onClick={load}>↻ Refresh</Btn>
+        <Btn v="ghost" onClick={()=>setCart([])} style={{color:DANGER}}>✕ Clear Cart</Btn>
+        {bulkLoading&&<span style={{fontSize:11,color:C.muted}}>⟳ Processing...</span>}
+        {actionMsg&&<span style={{fontSize:12,color:actionMsg.type==="success"?SUCCESS:actionMsg.type==="error"?DANGER:ACCENT}}>{actionMsg.text}</span>}
+      </div>
+      {bulkResults&&<div style={{...S.card,marginBottom:13}}><div style={{fontSize:12,fontWeight:600,marginBottom:9,color:C.text}}>Results</div><div style={{display:"flex",flexWrap:"wrap",gap:5}}>{bulkResults.map((r,i)=><span key={i} style={{...S.badge(r.success?"success":"danger"),fontSize:11}}>{r.name}: {r.success?"✓ OK":"✗ "+(r.error||"Failed")}</span>)}</div></div>}
+      <div style={{...S.card,padding:0,overflow:"hidden"}}>
+        {loading?<div style={{padding:28,textAlign:"center",color:C.dim}}>Loading...</div>:
+        <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <thead><tr><th style={S.th}>Account</th><th style={S.th}>Address</th><th style={S.th}>OS</th><th style={S.th}>Status</th><th style={S.th}>Last Verified</th><th style={S.th}>Remove</th></tr></thead>
+          <tbody>
+            {accounts.map(acc=>(
+              <tr key={acc.id} style={{cursor:"pointer"}} onClick={()=>onOpenAccount(acc)}>
+                <td style={S.td}><div style={{fontWeight:500,color:ACCENT}}>{acc.name}</div><div style={{fontSize:11,color:C.muted}}>{acc.username}</div></td>
+                <td style={{...S.td,color:C.muted}}>{acc.hostname}:{acc.port}</td>
+                <td style={S.td}>{acc.os==="windows"?"🪟":"🐧"} {acc.os}</td>
+                <td style={S.td}><span style={S.badge(statusBadge(acc))}>{statusLabel(acc)}</span></td>
+                <td style={{...S.td,fontSize:11,color:C.dim}}>{acc.last_verified?new Date(acc.last_verified).toLocaleString():"Never"}</td>
+                <td style={S.td} onClick={e=>e.stopPropagation()}><Btn v="ghost" sz="sm" onClick={()=>setCart(p=>p.filter(id=>id!==acc.id))} style={{color:C.dim}}>✕</Btn></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>}
+      </div>
+    </div>
+  );
+}
+
+// ── REPORT PAGE ────────────────────────────────────────────────────────────────
+function ReportPage(){
+  const {C,S}=React.useContext(ThemeCtx);
+  const [generating,setGenerating]=useState({});
+  const [msg,setMsg]=useState(null);
+
+  const reports=[
+    {key:"all",label:"Full Inventory",desc:"All accounts in the vault — name, address, OS, status, last verified, last changed.",icon:"📋"},
+    {key:"linux",label:"Linux Accounts Only",desc:"Filtered to Linux/SSH accounts only.",icon:"🐧"},
+    {key:"windows",label:"Windows Accounts Only",desc:"Filtered to Windows/WinRM accounts only.",icon:"🪟"},
+    {key:"disabled",label:"CPM Disabled Accounts",desc:"Accounts where automatic management has been disabled by admin.",icon:"⛔"},
+    {key:"verified_only",label:"Verified but Not Changed",desc:"Accounts that have been verified at least once but whose password has never been rotated.",icon:"✓"},
+  ];
+
+  async function generate(key){
+    setGenerating(g=>({...g,[key]:true}));setMsg(null);
+    try{
+      const res=await fetch(`/api/reports/csv?filter=${key}`,{headers:{"X-Session-Token":_token}});
+      if(!res.ok){const d=await res.json();throw new Error(d.error);}
+      const blob=await res.blob();
+      const url=URL.createObjectURL(blob);
+      const cd=res.headers.get("Content-Disposition")||"";
+      const fn=cd.match(/filename=(.+)/)?.[1]||`report_${key}.csv`;
+      const a=document.createElement("a");a.href=url;a.download=fn;document.body.appendChild(a);a.click();document.body.removeChild(a);
+      setMsg({type:"success",text:`✓ ${fn} downloaded.`});
+    }catch(e){setMsg({type:"error",text:"Error: "+e.message});}
+    finally{setGenerating(g=>({...g,[key]:false}));}
+  }
+
+  return(
+    <div>
+      <div style={{fontSize:18,fontWeight:700,color:C.text,marginBottom:4}}>Reports</div>
+      <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Generate CSV exports of your vault inventory.</div>
+      {msg&&<div style={{background:msg.type==="success"?"rgba(16,185,129,0.08)":"rgba(239,68,68,0.08)",border:`1px solid ${msg.type==="success"?"rgba(16,185,129,0.25)":"rgba(239,68,68,0.25)"}`,borderRadius:7,padding:"9px 13px",fontSize:12,color:msg.type==="success"?SUCCESS:DANGER,marginBottom:14}}>{msg.text}</div>}
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {reports.map(r=>(
+          <div key={r.key} style={{...S.card,display:"flex",alignItems:"center",gap:16,marginBottom:0}}>
+            <div style={{fontSize:24,flexShrink:0}}>{r.icon}</div>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:600,fontSize:13,color:C.text,marginBottom:3}}>{r.label}</div>
+              <div style={{fontSize:12,color:C.muted}}>{r.desc}</div>
+            </div>
+            <Btn v="primary" sz="sm" onClick={()=>generate(r.key)} disabled={generating[r.key]} style={{flexShrink:0}}>{generating[r.key]?"Generating...":"↓ Export CSV"}</Btn>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── USERS PAGE ─────────────────────────────────────────────────────────────────
 function UsersPage({currentUser,currentRole}){
+  const {C,S}=React.useContext(ThemeCtx);
   const [users,setUsers]=useState([]);const [showAdd,setShowAdd]=useState(false);const [step,setStep]=useState(1);
   const [form,setForm]=useState({username:"",password:"",role:"readonly"});const [qrData,setQrData]=useState(null);
   const [err,setErr]=useState("");const [loading,setLoading]=useState(false);const [deleteUser,setDeleteUser]=useState(null);
-  const [showChangePass,setShowChangePass]=useState(false);const [cpForm,setCpForm]=useState({old_password:"",new_password:"",confirm:"",totp_code:""});const [cpErr,setCpErr]=useState("");const [cpLoading,setCpLoading]=useState(false);
+  const [showCP,setShowCP]=useState(false);const [cpForm,setCpForm]=useState({old_password:"",new_password:"",confirm:"",totp_code:""});const [cpErr,setCpErr]=useState("");const [cpLoading,setCpLoading]=useState(false);
 
   async function load(){try{const d=await api("GET","/auth/users");setUsers(d);}catch(e){}}
   useEffect(()=>{load();},[]);
-
   async function create(){
     if(!form.username||form.password.length<8){setErr("Username required, password 8+ chars.");return;}
     setLoading(true);setErr("");
     try{const d=await api("POST","/auth/create_user",{username:form.username,password:form.password,role:form.role});setQrData(d);setStep(2);}
     catch(e){setErr(e.message);}finally{setLoading(false);}
   }
-  async function handleDelete(u){
-    try{await api("DELETE",`/auth/users/${u.username}`);setDeleteUser(null);load();}
-    catch(e){alert(e.message);}
-  }
-  async function doChangePass(){
+  async function handleDelete(u){try{await api("DELETE",`/auth/users/${u.username}`);setDeleteUser(null);load();}catch(e){alert(e.message);}}
+  async function doCP(){
     if(cpForm.new_password!==cpForm.confirm){setCpErr("Passwords don't match");return;}
-    if(cpForm.new_password.length<8){setCpErr("Password must be 8+ chars");return;}
+    if(cpForm.new_password.length<8){setCpErr("8+ chars required");return;}
     if(cpForm.totp_code.length!==6){setCpErr("Enter 6-digit MFA code");return;}
     setCpLoading(true);setCpErr("");
-    try{await api("POST","/auth/change_password",{old_password:cpForm.old_password,new_password:cpForm.new_password,totp_code:cpForm.totp_code});setShowChangePass(false);setCpForm({old_password:"",new_password:"",confirm:"",totp_code:""});load();}
+    try{await api("POST","/auth/change_password",{old_password:cpForm.old_password,new_password:cpForm.new_password,totp_code:cpForm.totp_code});setShowCP(false);setCpForm({old_password:"",new_password:"",confirm:"",totp_code:""});load();}
     catch(e){setCpErr(e.message);}finally{setCpLoading(false);}
   }
   function done(){setShowAdd(false);setStep(1);setForm({username:"",password:"",role:"readonly"});setQrData(null);load();}
-
-  const roleColor=r=>r==="admin"?"success":"purple";
-  const roleLabel=r=>r==="admin"?"Admin":"Read Only";
   const now=new Date();
 
   return(
     <div>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
-        <div><div style={{fontSize:18,fontWeight:700}}>Vault Users</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>{users.length} account{users.length!==1?"s":""}</div></div>
-        <div style={{display:"flex",gap:8}}>
-          <Btn v="ghost" onClick={()=>setShowChangePass(true)}>🔑 Change My Password</Btn>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+        <div><div style={{fontSize:18,fontWeight:700,color:C.text}}>Vault Users</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>{users.length} account{users.length!==1?"s":""}</div></div>
+        <div style={{display:"flex",gap:7}}>
+          <Btn v="ghost" onClick={()=>setShowCP(true)}>🔑 Change My Password</Btn>
           {currentRole==="admin"&&<Btn v="primary" onClick={()=>{setShowAdd(true);setStep(1);setQrData(null);setErr("");}}>+ Create User</Btn>}
         </div>
       </div>
-
-      {/* Role legend */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
-        {[["Admin","Full access — manage accounts, rotate passwords, manage users.","success"],["Read Only","View accounts, retrieve credentials (MFA required). Cannot add, edit, delete or rotate.","purple"]].map(([r,d,c])=>(
-          <div key={r} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"12px 16px"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><span style={S.badge(c)}>{r}</span></div>
-            <div style={{fontSize:12,color:C.muted}}>{d}</div>
-          </div>
-        ))}
+      <div style={{background:"rgba(245,158,11,0.06)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:7,padding:"8px 13px",marginBottom:14,fontSize:12,color:WARNING}}>
+        🔒 <strong>Password Policy:</strong> Vault user passwords must be changed every 30 days. Expired accounts are flagged below.
       </div>
-
-      {/* 30-day policy notice */}
-      <div style={{background:"rgba(245,158,11,0.06)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:7,padding:"10px 14px",marginBottom:14,fontSize:12,color:C.warning}}>
-        🔒 <strong>Password Policy:</strong> Vault user passwords must be changed every 30 days. Users will be prompted on login when expired.
-      </div>
-
       <div style={{...S.card,padding:0,overflow:"hidden"}}>
         <table style={{width:"100%",borderCollapse:"collapse"}}>
           <thead><tr>
             <th style={S.th}>User</th><th style={S.th}>Role</th><th style={S.th}>MFA</th>
-            <th style={S.th}>Password Age</th><th style={S.th}>Status</th>
+            <th style={S.th}>Password Age</th><th style={S.th}>Policy Status</th>
             {currentRole==="admin"&&<th style={S.th}>Actions</th>}
           </tr></thead>
           <tbody>
@@ -792,120 +831,99 @@ function UsersPage({currentUser,currentRole}){
               const days=changed?Math.floor((now-new Date(changed))/86400000):0;
               const expired=days>=30;
               return <tr key={i}>
-                <td style={S.td}>
-                  <div style={{display:"flex",alignItems:"center",gap:10}}>
-                    <div style={{width:32,height:32,borderRadius:"50%",background:"rgba(14,165,233,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:C.accent,flexShrink:0}}>{u.username[0].toUpperCase()}</div>
-                    <div><div style={{fontWeight:500}}>{u.username}</div>{u.username===currentUser&&<span style={{...S.badge("success"),fontSize:10}}>you</span>}</div>
-                  </div>
-                </td>
-                <td style={S.td}><span style={S.badge(roleColor(u.role))}>{roleLabel(u.role)}</span></td>
-                <td style={S.td}><span style={{fontSize:11,color:C.success}}>✓ Enabled</span></td>
-                <td style={S.td}><span style={{fontSize:12,color:expired?C.danger:days>20?C.warning:C.success}}>{days} days ago</span></td>
+                <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:9}}><div style={{width:30,height:30,borderRadius:"50%",background:"rgba(14,165,233,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:ACCENT,flexShrink:0}}>{u.username[0].toUpperCase()}</div><div><div style={{fontWeight:500,color:C.text}}>{u.username}</div>{u.username===currentUser&&<span style={{...S.badge("success"),fontSize:10}}>you</span>}</div></div></td>
+                <td style={S.td}><span style={S.badge(u.role==="admin"?"success":"purple")}>{u.role==="admin"?"Admin":"Read Only"}</span></td>
+                <td style={S.td}><span style={{fontSize:11,color:SUCCESS}}>✓ Enabled</span></td>
+                <td style={S.td}><span style={{fontSize:12,color:expired?DANGER:days>20?WARNING:SUCCESS}}>{days} days</span></td>
                 <td style={S.td}>{expired?<span style={S.badge("danger")}>Expired</span>:<span style={S.badge("success")}>Active</span>}</td>
-                {currentRole==="admin"&&<td style={S.td}>{u.username!==currentUser?<Btn v="ghost" sz="sm" onClick={()=>setDeleteUser(u)} style={{color:C.danger}}>🗑 Delete</Btn>:<span style={{fontSize:11,color:C.dim}}>—</span>}</td>}
+                {currentRole==="admin"&&<td style={S.td}>{u.username!==currentUser?<Btn v="ghost" sz="sm" onClick={()=>setDeleteUser(u)} style={{color:DANGER}}>🗑 Delete</Btn>:<span style={{fontSize:11,color:C.dim}}>—</span>}</td>}
               </tr>;
             })}
           </tbody>
         </table>
       </div>
-
-      {/* Change own password */}
-      {showChangePass&&<div style={S.modal} onClick={e=>e.target===e.currentTarget&&setShowChangePass(false)}>
-        <div style={{...S.modalBox,width:420}}>
-          <div style={{fontSize:14,fontWeight:600,marginBottom:16}}>Change My Vault Password</div>
+      {showCP&&<div style={S.modal} onClick={e=>e.target===e.currentTarget&&setShowCP(false)}>
+        <div style={{...S.modalBox,width:400}}>
+          <div style={{fontSize:14,fontWeight:600,marginBottom:14,color:C.text}}>Change My Vault Password</div>
           <F label="Current Password"><input style={S.input} type="password" value={cpForm.old_password} onChange={e=>setCpForm(f=>({...f,old_password:e.target.value}))}/></F>
           <F label="New Password"><input style={S.input} type="password" value={cpForm.new_password} onChange={e=>setCpForm(f=>({...f,new_password:e.target.value}))}/></F>
-          <F label="Confirm New Password"><input style={S.input} type="password" value={cpForm.confirm} onChange={e=>setCpForm(f=>({...f,confirm:e.target.value}))}/></F>
-          <F label="Authenticator Code (MFA required)">
-            <input style={{...S.input,fontSize:18,letterSpacing:"0.25em",textAlign:"center"}} value={cpForm.totp_code} onChange={e=>setCpForm(f=>({...f,totp_code:e.target.value.replace(/\D/g,"").slice(0,6)}))} placeholder="000000" maxLength={6}/>
-          </F>
-          {cpErr&&<div style={{color:C.danger,fontSize:12,marginBottom:10}}>⚠ {cpErr}</div>}
-          <div style={{display:"flex",gap:8}}>
-            <Btn v="ghost" onClick={()=>setShowChangePass(false)}>Cancel</Btn>
-            <button style={{...S.btn("primary"),flex:1,opacity:cpLoading?0.7:1}} onClick={doChangePass} disabled={cpLoading}>{cpLoading?"Changing...":"Change Password"}</button>
-          </div>
+          <F label="Confirm"><input style={S.input} type="password" value={cpForm.confirm} onChange={e=>setCpForm(f=>({...f,confirm:e.target.value}))}/></F>
+          <F label="Authenticator Code (MFA required)"><input style={{...S.input,fontSize:17,letterSpacing:"0.22em",textAlign:"center"}} value={cpForm.totp_code} onChange={e=>setCpForm(f=>({...f,totp_code:e.target.value.replace(/\D/g,"").slice(0,6)}))} placeholder="000000" maxLength={6}/></F>
+          {cpErr&&<div style={{color:DANGER,fontSize:12,marginBottom:9}}>⚠ {cpErr}</div>}
+          <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={()=>setShowCP(false)}>Cancel</Btn><button style={{...S.btn("primary"),flex:1,opacity:cpLoading?0.7:1}} onClick={doCP} disabled={cpLoading}>{cpLoading?"Changing...":"Change Password"}</button></div>
         </div>
       </div>}
-
-      {/* Create user */}
       {showAdd&&<div style={S.modal} onClick={e=>e.target===e.currentTarget&&done()}>
-        <div style={{...S.modalBox,width:440}}>
-          <div style={{fontSize:14,fontWeight:600,marginBottom:16}}>Create Vault User</div>
+        <div style={{...S.modalBox,width:430}}>
+          <div style={{fontSize:14,fontWeight:600,marginBottom:14,color:C.text}}>Create Vault User</div>
           {step===1?<>
             <F label="Username"><input style={S.input} value={form.username} onChange={e=>setForm(f=>({...f,username:e.target.value}))}/></F>
             <F label="Password"><input style={S.input} type="password" value={form.password} onChange={e=>setForm(f=>({...f,password:e.target.value}))}/></F>
-            <F label="Role">
-              <select style={S.input} value={form.role} onChange={e=>setForm(f=>({...f,role:e.target.value}))}>
-                <option value="admin">Admin — full access</option>
-                <option value="readonly">Read Only — view and retrieve only</option>
-              </select>
-            </F>
-            <div style={{background:C.surface2,borderRadius:6,padding:"9px 13px",fontSize:12,color:C.muted,marginBottom:12}}>{form.role==="admin"?"Admin can manage all accounts, rotate passwords, and manage users.":"Read-only users can view accounts and retrieve credentials (MFA required) but cannot make changes."}</div>
-            {err&&<div style={{color:C.danger,fontSize:12,marginBottom:10}}>⚠ {err}</div>}
+            <F label="Role"><select style={S.input} value={form.role} onChange={e=>setForm(f=>({...f,role:e.target.value}))}>
+              <option value="admin">Admin — full access</option>
+              <option value="readonly">Read Only — view and retrieve only</option>
+            </select></F>
+            <div style={{background:C.surface2,borderRadius:5,padding:"8px 12px",fontSize:12,color:C.muted,marginBottom:11}}>{form.role==="admin"?"Admin can manage all accounts and users.":"Read-only users can view accounts and retrieve credentials (MFA) but cannot make changes."}</div>
+            {err&&<div style={{color:DANGER,fontSize:12,marginBottom:9}}>⚠ {err}</div>}
             <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={done}>Cancel</Btn><button style={{...S.btn("primary"),flex:1,opacity:loading?0.7:1}} onClick={create} disabled={loading}>{loading?"Creating...":"Continue"}</button></div>
           </>:qrData&&<>
-            <div style={{fontSize:12,color:C.muted,marginBottom:14}}>Scan QR with Microsoft Authenticator</div>
-            <div style={{background:C.surface2,borderRadius:8,padding:18,textAlign:"center",marginBottom:14}}>
+            <div style={{background:C.surface2,borderRadius:7,padding:18,textAlign:"center",marginBottom:13}}>
               <QRImg value={qrData.otp_uri} size={180}/>
               <div style={{marginTop:10,fontSize:11,color:C.muted}}>Open Authenticator → Add account → Scan QR</div>
-              <div style={{marginTop:8,background:C.surface,borderRadius:5,padding:"7px 11px",display:"inline-block"}}>
+              <div style={{marginTop:8,background:C.surface,borderRadius:5,padding:"6px 10px",display:"inline-block"}}>
                 <div style={{fontSize:10,color:C.dim,marginBottom:2,textTransform:"uppercase"}}>Manual secret:</div>
-                <div style={{fontSize:12,color:C.accent,letterSpacing:"0.1em",wordBreak:"break-all",fontWeight:600}}>{qrData.totp_secret}</div>
+                <div style={{fontSize:12,color:ACCENT,letterSpacing:"0.1em",wordBreak:"break-all",fontWeight:600}}>{qrData.totp_secret}</div>
               </div>
             </div>
-            <div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:6,padding:"9px 13px",fontSize:12,color:C.warning,marginBottom:14}}>⚠ User must scan before closing. Will NOT be shown again.</div>
+            <div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:5,padding:"8px 12px",fontSize:12,color:WARNING,marginBottom:13}}>⚠ Will NOT be shown again.</div>
             <Btn v="success" onClick={done} style={{width:"100%"}}>✓ Confirm & Create User</Btn>
           </>}
         </div>
       </div>}
-
-      {deleteUser&&<Confirm title="Delete User" msg={`Delete user "${deleteUser.username}"? They will immediately lose all vault access.`} onConfirm={()=>handleDelete(deleteUser)} onCancel={()=>setDeleteUser(null)}/>}
+      {deleteUser&&<Confirm title="Delete User" msg={`Delete "${deleteUser.username}"? They lose all vault access immediately.`} onConfirm={()=>handleDelete(deleteUser)} onCancel={()=>setDeleteUser(null)}/>}
     </div>
   );
 }
 
-// ── PASSWORD EXPIRED PROMPT ───────────────────────────────────────────────────
+// ── PASSWORD EXPIRED MODAL ─────────────────────────────────────────────────────
 function PasswordExpiredModal({onClose,onChanged}){
-  const [form,setForm]=useState({old_password:"",new_password:"",confirm:"",totp_code:""});
-  const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
+  const {C,S}=React.useContext(ThemeCtx);
+  const [form,setForm]=useState({old_password:"",new_password:"",confirm:"",totp_code:""});const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
   async function submit(){
     if(form.new_password!==form.confirm){setErr("Passwords don't match");return;}
-    if(form.new_password.length<8){setErr("Password must be 8+ chars");return;}
+    if(form.new_password.length<8){setErr("8+ chars required");return;}
     if(form.totp_code.length!==6){setErr("Enter 6-digit MFA code");return;}
     setLoading(true);setErr("");
     try{await api("POST","/auth/change_password",{old_password:form.old_password,new_password:form.new_password,totp_code:form.totp_code});onChanged();}
     catch(e){setErr(e.message);}finally{setLoading(false);}
   }
   return <div style={{...S.modal,zIndex:2000}}>
-    <div style={{...S.modalBox,width:420}}>
-      <div style={{textAlign:"center",marginBottom:16}}>
-        <div style={{fontSize:28,marginBottom:6}}>⚠️</div>
-        <div style={{fontSize:14,fontWeight:600,color:C.warning}}>Password Expired</div>
-        <div style={{fontSize:12,color:C.muted,marginTop:4}}>Your vault password is over 30 days old. Please set a new one to continue.</div>
-      </div>
+    <div style={{...S.modalBox,width:400}}>
+      <div style={{textAlign:"center",marginBottom:14}}><div style={{fontSize:26,marginBottom:5}}>⚠️</div><div style={{fontSize:14,fontWeight:600,color:WARNING}}>Password Expired</div><div style={{fontSize:12,color:C.muted,marginTop:3}}>Your vault password is over 30 days old. Please set a new one.</div></div>
       <F label="Current Password"><input style={S.input} type="password" value={form.old_password} onChange={e=>setForm(f=>({...f,old_password:e.target.value}))}/></F>
       <F label="New Password"><input style={S.input} type="password" value={form.new_password} onChange={e=>setForm(f=>({...f,new_password:e.target.value}))}/></F>
-      <F label="Confirm New Password"><input style={S.input} type="password" value={form.confirm} onChange={e=>setForm(f=>({...f,confirm:e.target.value}))}/></F>
-      <F label="Authenticator Code">
-        <input style={{...S.input,fontSize:18,letterSpacing:"0.25em",textAlign:"center"}} value={form.totp_code} onChange={e=>setForm(f=>({...f,totp_code:e.target.value.replace(/\D/g,"").slice(0,6)}))} placeholder="000000" maxLength={6}/>
-      </F>
-      {err&&<div style={{color:C.danger,fontSize:12,marginBottom:10}}>⚠ {err}</div>}
-      <div style={{display:"flex",gap:8}}>
-        <Btn v="ghost" onClick={onClose}>Skip for now</Btn>
-        <button style={{...S.btn("warning"),flex:1,opacity:loading?0.7:1}} onClick={submit} disabled={loading}>{loading?"Changing...":"Change Password"}</button>
-      </div>
+      <F label="Confirm"><input style={S.input} type="password" value={form.confirm} onChange={e=>setForm(f=>({...f,confirm:e.target.value}))}/></F>
+      <F label="Authenticator Code"><input style={{...S.input,fontSize:17,letterSpacing:"0.22em",textAlign:"center"}} value={form.totp_code} onChange={e=>setForm(f=>({...f,totp_code:e.target.value.replace(/\D/g,"").slice(0,6)}))} placeholder="000000" maxLength={6}/></F>
+      {err&&<div style={{color:DANGER,fontSize:12,marginBottom:9}}>⚠ {err}</div>}
+      <div style={{display:"flex",gap:8}}><Btn v="ghost" onClick={onClose}>Skip</Btn><button style={{...S.btn("warning"),flex:1,opacity:loading?0.7:1}} onClick={submit} disabled={loading}>{loading?"Changing...":"Change Password"}</button></div>
     </div>
   </div>;
 }
 
-// ── APP SHELL ─────────────────────────────────────────────────────────────────
+// ── APP SHELL ──────────────────────────────────────────────────────────────────
 function App(){
+  const {dark,toggle}=useTheme();
+  const C=useC(dark);
+  const S=mkS(C,dark);
+  const ctx=useMemo(()=>({dark,C,S}),[dark,C,S]);
+
   const [page,setPage]=useState("accounts");
   const [openAccount,setOpenAccount]=useState(null);
   const [session,setSession]=useState(null);
   const [hasUsers,setHasUsers]=useState(true);
   const [showRegister,setShowRegister]=useState(false);
   const [cart,setCart]=useState([]);
+  const [selected,setSelected]=useState([]);
   const [checking,setChecking]=useState(true);
   const [showExpired,setShowExpired]=useState(false);
 
@@ -916,169 +934,81 @@ function App(){
         setHasUsers(s.has_users);
         if(!s.has_users){setShowRegister(true);setChecking(false);return;}
         const t=localStorage.getItem("pam_token");
-        if(t){
-          _token=t;_role=localStorage.getItem("pam_role")||"";
+        if(t){_token=t;_role=localStorage.getItem("pam_role")||"";
           try{await api("GET","/accounts");const u=localStorage.getItem("pam_user");if(u)setSession({username:u,role:_role});}
           catch(e){localStorage.removeItem("pam_token");localStorage.removeItem("pam_user");localStorage.removeItem("pam_role");}
         }
-      }catch(e){}
-      setChecking(false);
+      }catch(e){}setChecking(false);
     }
     init();
   },[]);
 
-  function handleLogin(d){
-    _token=d.token;_role=d.role;
-    localStorage.setItem("pam_token",d.token);localStorage.setItem("pam_user",d.username);localStorage.setItem("pam_role",d.role);
-    setSession(d);
-    if(d.password_expired) setShowExpired(true);
-  }
-  async function handleLogout(){
-    try{await api("POST","/auth/logout");}catch(e){}
-    _token="";_role="";
-    localStorage.removeItem("pam_token");localStorage.removeItem("pam_user");localStorage.removeItem("pam_role");
-    setSession(null);setCart([]);setOpenAccount(null);
-  }
+  function handleLogin(d){_token=d.token;_role=d.role;localStorage.setItem("pam_token",d.token);localStorage.setItem("pam_user",d.username);localStorage.setItem("pam_role",d.role);setSession(d);if(d.password_expired)setShowExpired(true);}
+  async function handleLogout(){try{await api("POST","/auth/logout");}catch(e){}_token="";_role="";localStorage.removeItem("pam_token");localStorage.removeItem("pam_user");localStorage.removeItem("pam_role");setSession(null);setCart([]);setSelected([]);setOpenAccount(null);}
   function handleRegistered(){api("GET","/auth/status").then(d=>setHasUsers(d.has_users));setShowRegister(false);}
 
-  if(checking) return <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.muted}}>Loading...</div>;
-  if(showRegister&&!session) return <RegisterPage onBack={()=>setShowRegister(false)} onDone={handleRegistered}/>;
-  if(!session) return <LoginPage onLogin={handleLogin} hasUsers={hasUsers} onRegister={()=>setShowRegister(true)}/>;
+  if(checking) return <ThemeCtx.Provider value={{dark,C,S}}><div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.muted}}>Loading...</div></ThemeCtx.Provider>;
+  if(showRegister&&!session) return <ThemeCtx.Provider value={{dark,C,S}}><RegisterPage onBack={()=>setShowRegister(false)} onDone={handleRegistered}/></ThemeCtx.Provider>;
+  if(!session) return <ThemeCtx.Provider value={{dark,C,S}}><LoginPage onLogin={handleLogin} hasUsers={hasUsers} onRegister={()=>setShowRegister(true)}/></ThemeCtx.Provider>;
 
   const isReadOnly=session.role==="readonly";
   const navItems=[
     {key:"accounts",label:"Account Vault",icon:"🔒"},
-    {key:"cart",label:`Cart${cart.length>0?" ("+cart.length+")":""}`,icon:"🛒"},
-    ...(isReadOnly?[]:[{key:"users",label:"Vault Users",icon:"👤"}]),
+    {key:"cart",label:"Cart"+(cart.length>0?` (${cart.length})`:""),icon:"🛒"},
+    {key:"report",label:"Reports",icon:"📊"},
+    ...(!isReadOnly?[{key:"users",label:"Vault Users",icon:"👤"}]:[]),
   ];
 
   return(
-    <div style={{display:"flex",minHeight:"100vh"}}>
-      {/* Sidebar */}
-      <div style={{width:210,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",position:"fixed",top:0,left:0,bottom:0,zIndex:100}}>
-        <div style={{padding:"18px 16px 12px",borderBottom:`1px solid ${C.border}`}}>
-          <div style={{fontSize:15,fontWeight:700,color:C.accent}}>⬡ PAM Vault</div>
-          <div style={{fontSize:10,color:C.dim,marginTop:2}}>Privileged Access Mgmt</div>
-        </div>
-        <div style={{flex:1,paddingTop:6}}>
-          {navItems.map(item=>(
-            <div key={item.key} onClick={()=>{setPage(item.key);setOpenAccount(null);}} style={{display:"flex",alignItems:"center",gap:9,padding:"9px 16px",cursor:"pointer",color:(page===item.key&&!openAccount)||openAccount&&item.key==="accounts"?C.accent:C.muted,background:(page===item.key&&!openAccount)?"rgba(14,165,233,0.08)":"transparent",borderLeft:`2px solid ${(page===item.key&&!openAccount)?C.accent:"transparent"}`,userSelect:"none",transition:"all 0.1s",fontSize:12}}>
-              <span>{item.icon}</span><span>{item.label}</span>
-            </div>
-          ))}
-        </div>
-        <div style={{padding:"12px 16px",borderTop:`1px solid ${C.border}`}}>
-          <div style={{fontSize:12,color:C.text,marginBottom:3,fontWeight:500}}>{session.username}</div>
-          <div style={{marginBottom:5}}><span style={S.badge(isReadOnly?"purple":"success")}>{isReadOnly?"Read Only":"Admin"}</span></div>
-          <div style={{fontSize:10,color:C.dim,marginBottom:8}}>🔐 MFA Active</div>
-          <Btn v="ghost" onClick={handleLogout} style={{width:"100%",fontSize:11,padding:"5px"}}>Sign Out</Btn>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div style={{marginLeft:210,flex:1,display:"flex",flexDirection:"column"}}>
-        {/* Top bar */}
-        <div style={{height:48,background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",padding:"0 24px",gap:6,position:"sticky",top:0,zIndex:50}}>
-          <span style={{fontSize:12,color:C.dim}}>Account Vault</span>
-          {openAccount&&<><span style={{color:C.dim,fontSize:12}}>›</span><span style={{fontSize:12,color:C.text}}>{openAccount.name}</span></>}
-          <div style={{flex:1}}/>
-          <span style={{fontSize:11,color:C.dim}}>TP072352 · APU FYP</span>
-        </div>
-
-        <div style={{flex:1,padding:"20px 28px",overflowY:"auto"}}>
-          {page==="accounts"&&!openAccount&&<AccountsPage cart={cart} setCart={setCart} isReadOnly={isReadOnly} onOpenAccount={acc=>{setOpenAccount(acc);setPage("accounts");}}/>}
-          {page==="accounts"&&openAccount&&<AccountDetailPage account={openAccount} onBack={()=>setOpenAccount(null)} isReadOnly={isReadOnly} currentUser={session.username}/>}
-          {page==="cart"&&<CartPage cart={cart} setCart={setCart} isReadOnly={isReadOnly} onOpenAccount={acc=>{setOpenAccount(acc);setPage("accounts");}}/>}
-          {page==="users"&&!isReadOnly&&<UsersPage currentUser={session.username} currentRole={session.role}/>}
-        </div>
-      </div>
-
-      {showExpired&&<PasswordExpiredModal onClose={()=>setShowExpired(false)} onChanged={()=>setShowExpired(false)}/>}
-    </div>
-  );
-}
-
-// ── CART PAGE ─────────────────────────────────────────────────────────────────
-function CartPage({cart,setCart,isReadOnly,onOpenAccount}){
-  const [accounts,setAccounts]=useState([]);const [loading,setLoading]=useState(true);
-  const [bulkLoading,setBulkLoading]=useState(false);const [bulkResults,setBulkResults]=useState(null);
-
-  async function load(){setLoading(true);try{const d=await api("GET","/accounts");setAccounts(d.filter(a=>cart.includes(a.id)));}catch(e){}finally{setLoading(false);}}
-  useEffect(()=>{load();},[cart.length]);
-
-  async function doBulkVerify(){
-    setBulkLoading(true);setBulkResults(null);
-    try{const d=await api("POST","/accounts/bulk/verify",{account_ids:cart});setBulkResults({action:"verify",items:d});}
-    catch(e){alert(e.message);}finally{setBulkLoading(false);load();}
-  }
-  async function doBulkChange(){
-    setBulkLoading(true);setBulkResults(null);
-    const results=[];
-    for(const aid of cart){
-      try{const d=await api("POST",`/accounts/${aid}/rotate`);results.push({id:aid,name:accounts.find(a=>a.id===aid)?.name||aid,success:d.success,error:d.error});}
-      catch(e){results.push({id:aid,name:accounts.find(a=>a.id===aid)?.name||aid,success:false,error:e.message});}
-    }
-    setBulkResults({action:"change",items:results});setBulkLoading(false);load();
-  }
-
-  if(cart.length===0) return(
-    <div>
-      <div style={{fontSize:18,fontWeight:700,marginBottom:6}}>Cart</div>
-      <div style={{...S.card,textAlign:"center",padding:40,color:C.dim}}>
-        <div style={{fontSize:24,marginBottom:10}}>🛒</div>
-        <div style={{fontSize:13}}>Cart is empty.</div>
-        <div style={{fontSize:12,marginTop:6}}>Go to Account Vault and tick the checkboxes to add accounts.</div>
-      </div>
-    </div>
-  );
-
-  return(
-    <div>
-      <div style={{fontSize:18,fontWeight:700,marginBottom:4}}>Cart</div>
-      <div style={{fontSize:12,color:C.muted,marginBottom:16}}>{cart.length} account{cart.length!==1?"s":""} selected · session-only (cleared on logout)</div>
-
-      {/* Action bar */}
-      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-        {!isReadOnly&&<Btn v="ghost" onClick={doBulkVerify} disabled={bulkLoading} style={{background:C.surface2,color:C.text}}>✓ Verify All</Btn>}
-        {!isReadOnly&&<Btn v="warning" onClick={doBulkChange} disabled={bulkLoading}>🔄 Change All Passwords</Btn>}
-        <Btn v="ghost" onClick={load}>↻ Refresh</Btn>
-        <Btn v="ghost" onClick={()=>setCart([])} style={{color:C.danger}}>✕ Clear Cart</Btn>
-        {bulkLoading&&<span style={{fontSize:12,color:C.muted,display:"flex",alignItems:"center"}}>⟳ Processing...</span>}
-      </div>
-
-      {/* Bulk results */}
-      {bulkResults&&<div style={{...S.card,marginBottom:14}}>
-        <div style={{fontSize:12,fontWeight:600,marginBottom:10}}>{bulkResults.action==="verify"?"Verification Results":"Password Change Results"}</div>
-        <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-          {bulkResults.items.map((r,i)=><span key={i} style={{...S.badge(r.success?"success":"danger"),padding:"4px 10px",fontSize:12}}>{r.name}: {r.success?"✓ OK":"✗ "+(r.error||"Failed")}</span>)}
-        </div>
-      </div>}
-
-      {/* Account list */}
-      <div style={{...S.card,padding:0,overflow:"hidden"}}>
-        {loading?<div style={{padding:30,textAlign:"center",color:C.dim}}>Loading...</div>:
-        <table style={{width:"100%",borderCollapse:"collapse"}}>
-          <thead><tr>
-            <th style={S.th}>Account</th><th style={S.th}>Address</th><th style={S.th}>OS</th>
-            <th style={S.th}>Status</th><th style={S.th}>Last Verified</th><th style={S.th}>Actions</th>
-          </tr></thead>
-          <tbody>
-            {accounts.map(acc=>(
-              <tr key={acc.id} style={{cursor:"pointer"}} onClick={()=>onOpenAccount(acc)}>
-                <td style={S.td}><div style={{fontWeight:500,color:C.accent}}>{acc.name}</div><div style={{fontSize:11,color:C.muted}}>{acc.username}</div></td>
-                <td style={{...S.td,color:C.muted}}>{acc.hostname}:{acc.port}</td>
-                <td style={S.td}>{acc.os==="windows"?"🪟":"🐧"} {acc.os}</td>
-                <td style={S.td}><span style={S.badge(!acc.auto_management?"disabled":acc.status==="active"?"success":"danger")}>{!acc.auto_management?"Mgmt Disabled":acc.status}</span></td>
-                <td style={{...S.td,fontSize:11,color:C.dim}}>{acc.last_verified?new Date(acc.last_verified).toLocaleString():"Never"}</td>
-                <td style={S.td} onClick={e=>e.stopPropagation()}>
-                  <Btn v="ghost" sz="sm" onClick={()=>setCart(p=>p.filter(id=>id!==acc.id))} style={{color:C.dim}}>✕ Remove</Btn>
-                </td>
-              </tr>
+    <ThemeCtx.Provider value={ctx}>
+      <div style={{display:"flex",minHeight:"100vh",background:C.bg}}>
+        {/* Sidebar */}
+        <div style={{width:206,background:C.surface,borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",position:"fixed",top:0,left:0,bottom:0,zIndex:100}}>
+          <div style={{padding:"16px 15px 11px",borderBottom:`1px solid ${C.border}`}}>
+            <div style={{fontSize:15,fontWeight:700,color:ACCENT}}>⬡ PAM Vault</div>
+            <div style={{fontSize:10,color:C.dim,marginTop:2}}>Privileged Access Mgmt</div>
+          </div>
+          <div style={{flex:1,paddingTop:5}}>
+            {navItems.map(item=>(
+              <div key={item.key} onClick={()=>{setPage(item.key);setOpenAccount(null);}} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 15px",cursor:"pointer",color:page===item.key&&!openAccount?ACCENT:C.muted,background:page===item.key&&!openAccount?`${ACCENT}12`:"transparent",borderLeft:`2px solid ${page===item.key&&!openAccount?ACCENT:"transparent"}`,userSelect:"none",fontSize:12,transition:"all 0.1s"}}>
+                <span>{item.icon}</span><span>{item.label}</span>
+              </div>
             ))}
-          </tbody>
-        </table>}
+          </div>
+          <div style={{padding:"11px 15px",borderTop:`1px solid ${C.border}`}}>
+            <div style={{fontSize:12,color:C.text,marginBottom:3,fontWeight:500}}>{session.username}</div>
+            <div style={{marginBottom:4}}><span style={S.badge(isReadOnly?"purple":"success")}>{isReadOnly?"Read Only":"Admin"}</span></div>
+            <div style={{fontSize:10,color:C.dim,marginBottom:7}}>🔐 MFA Active</div>
+            <Btn v="ghost" onClick={handleLogout} style={{width:"100%",fontSize:11,padding:"4px"}}>Sign Out</Btn>
+          </div>
+        </div>
+
+        {/* Main */}
+        <div style={{marginLeft:206,flex:1,display:"flex",flexDirection:"column"}}>
+          {/* Top bar */}
+          <div style={{height:46,background:C.surface,borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",padding:"0 22px",gap:6,position:"sticky",top:0,zIndex:50}}>
+            <span style={{fontSize:12,color:C.dim,cursor:"pointer"}} onClick={()=>{setPage("accounts");setOpenAccount(null);}}>Account Vault</span>
+            {openAccount&&<><span style={{color:C.dim,fontSize:12}}>›</span><span style={{fontSize:12,color:C.text}}>{openAccount.name}</span></>}
+            <div style={{flex:1}}/>
+            {/* Theme toggle */}
+            <button onClick={toggle} style={{...S.btn("ghost","sm"),fontSize:11,marginRight:6}} title="Toggle dark/light mode">
+              {dark?"☀️ Light":"🌙 Dark"}
+            </button>
+            <span style={{fontSize:11,color:C.dim}}>TP072352 · APU FYP</span>
+          </div>
+
+          <div style={{flex:1,padding:"18px 26px",overflowY:"auto"}}>
+            {page==="accounts"&&!openAccount&&<AccountsPage cart={cart} setCart={setCart} selected={selected} setSelected={setSelected} isReadOnly={isReadOnly} onOpenAccount={acc=>{setOpenAccount(acc);}}/>}
+            {page==="accounts"&&openAccount&&<AccountDetailPage account={openAccount} onBack={()=>setOpenAccount(null)} isReadOnly={isReadOnly} currentUser={session.username}/>}
+            {page==="cart"&&<CartPage cart={cart} setCart={setCart} isReadOnly={isReadOnly} onOpenAccount={acc=>{setOpenAccount(acc);setPage("accounts");}}/>}
+            {page==="report"&&<ReportPage/>}
+            {page==="users"&&!isReadOnly&&<UsersPage currentUser={session.username} currentRole={session.role}/>}
+          </div>
+        </div>
+
+        {showExpired&&<PasswordExpiredModal onClose={()=>setShowExpired(false)} onChanged={()=>setShowExpired(false)}/>}
       </div>
-    </div>
+    </ThemeCtx.Provider>
   );
 }
 
