@@ -1,5 +1,5 @@
 # PAM Vault — Full System
-Gilbert Andersen Sutanto · TP072352 · APU FYP
+Gilbert - FYP
 
 ## Stack
 - **Backend**: Python + Flask REST API
