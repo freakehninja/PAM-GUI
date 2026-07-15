@@ -51,13 +51,7 @@ let _role=localStorage.getItem("pam_role")||"";
 async function api(method,path,body){
   const res=await fetch(API+"/api"+path,{method,headers:{"Content-Type":"application/json","X-Session-Token":_token},body:body?JSON.stringify(body):undefined});
   const data=await res.json();
-  if(!res.ok){
-    // Handle session timeout — trigger global logout
-    if(res.status===401&&data.reason==="timeout"&&typeof window._onSessionTimeout==="function"){
-      window._onSessionTimeout();
-    }
-    throw new Error(data.error||"Request failed");
-  }
+  if(!res.ok) throw new Error(data.error||"Request failed");
   return data;
 }
 
@@ -122,16 +116,15 @@ function Confirm({title,msg,onConfirm,onCancel,danger=true}){
 }
 
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
-function LoginPage({onLogin,hasUsers,onRegister,timedOut}){
+function LoginPage({onLogin,hasUsers,onRegister}){
   const {C,S,dark}=React.useContext(ThemeCtx);
-  const [u,setU]=useState("");const [p,setP]=useState("");const [totp,setTotp]=useState("");const [err,setErr]=useState(timedOut?"Your session timed out due to inactivity. Please log in again.":"");const [loading,setLoading]=useState(false);
+  const [u,setU]=useState("");const [p,setP]=useState("");const [err,setErr]=useState("");const [loading,setLoading]=useState(false);
   const [locked,setLocked]=useState(false);const [showReset,setShowReset]=useState(false);
   const [resetStep,setResetStep]=useState(1);const [resetCode,setResetCode]=useState("");const [newPass,setNewPass]=useState("");const [newPass2,setNewPass2]=useState("");const [resetErr,setResetErr]=useState("");const [resetLoading,setResetLoading]=useState(false);
 
   async function submit(){
-    if(totp.length!==6){setErr("Enter your 6-digit authenticator code.");return;}
     setLoading(true);setErr("");
-    try{const d=await api("POST","/auth/login",{username:u,password:p,totp_code:totp});_token=d.token;_role=d.role;localStorage.setItem("pam_token",d.token);localStorage.setItem("pam_role",d.role);onLogin(d);}
+    try{const d=await api("POST","/auth/login",{username:u,password:p});_token=d.token;_role=d.role;localStorage.setItem("pam_token",d.token);localStorage.setItem("pam_role",d.role);onLogin(d);}
     catch(e){if(e.message.includes("locked"))setLocked(true);setErr(e.message);}
     finally{setLoading(false);}
   }
@@ -174,12 +167,8 @@ function LoginPage({onLogin,hasUsers,onRegister,timedOut}){
           </div>}
           <F label="Username"><input style={S.input} value={u} onChange={e=>setU(e.target.value)} placeholder="admin" onKeyDown={e=>e.key==="Enter"&&submit()}/></F>
           <F label="Password"><input style={S.input} type="password" value={p} onChange={e=>setP(e.target.value)} placeholder="••••••••" onKeyDown={e=>e.key==="Enter"&&submit()}/></F>
-          <F label="Authenticator Code (MFA)">
-            <input style={{...S.input,fontSize:18,letterSpacing:"0.25em",textAlign:"center"}} value={totp} onChange={e=>setTotp(e.target.value.replace(/\D/g,"").slice(0,6))} placeholder="000000" maxLength={6} onKeyDown={e=>e.key==="Enter"&&submit()}/>
-            <div style={{fontSize:11,color:C.muted,marginTop:3}}>Open Microsoft Authenticator and enter the 6-digit code.</div>
-          </F>
-          {err&&!locked&&<div style={{color:timedOut&&!err.includes("locked")?ACCENT:DANGER,fontSize:12,marginBottom:10}}>{timedOut&&!err.includes("locked")?"🕐":"⚠"} {err}</div>}
-          <Btn v="primary" onClick={submit} disabled={loading||locked||totp.length!==6} style={{width:"100%",padding:9}}>{loading?"Signing in...":"Sign In"}</Btn>
+          {err&&!locked&&<div style={{color:DANGER,fontSize:12,marginBottom:10}}>⚠ {err}</div>}
+          <Btn v="primary" onClick={submit} disabled={loading||locked} style={{width:"100%",padding:9}}>{loading?"Signing in...":"Sign In"}</Btn>
           {!hasUsers&&<div style={{marginTop:13,textAlign:"center"}}><span style={{fontSize:12,color:C.muted}}>No accounts. </span><span style={{fontSize:12,color:ACCENT,cursor:"pointer"}} onClick={onRegister}>Create admin →</span></div>}
         </div>
         <div style={{textAlign:"center",fontSize:11,color:C.dim,marginTop:10}}>TP072352 · APU Cybersecurity FYP</div>
@@ -930,7 +919,7 @@ function App(){
 
   const [page,setPage]=useState("accounts");
   const [openAccount,setOpenAccount]=useState(null);
-  const [session,setSession]=useState(null);const [timedOut,setTimedOut]=useState(false);
+  const [session,setSession]=useState(null);
   const [hasUsers,setHasUsers]=useState(true);
   const [showRegister,setShowRegister]=useState(false);
   const [cart,setCart]=useState([]);
@@ -954,15 +943,13 @@ function App(){
     init();
   },[]);
 
-  function handleLogin(d){_token=d.token;_role=d.role;localStorage.setItem("pam_token",d.token);localStorage.setItem("pam_user",d.username);localStorage.setItem("pam_role",d.role);setSession(d);setTimedOut(false);if(d.password_expired)setShowExpired(true);}
-  function handleSessionTimeout(){_token=null;_role=null;localStorage.removeItem("pam_token");localStorage.removeItem("pam_role");localStorage.removeItem("pam_user");setSession(null);setTimedOut(true);}
-  React.useEffect(()=>{window._onSessionTimeout=handleSessionTimeout;return()=>{window._onSessionTimeout=null;};},[]);
+  function handleLogin(d){_token=d.token;_role=d.role;localStorage.setItem("pam_token",d.token);localStorage.setItem("pam_user",d.username);localStorage.setItem("pam_role",d.role);setSession(d);if(d.password_expired)setShowExpired(true);}
   async function handleLogout(){try{await api("POST","/auth/logout");}catch(e){}_token="";_role="";localStorage.removeItem("pam_token");localStorage.removeItem("pam_user");localStorage.removeItem("pam_role");setSession(null);setCart([]);setSelected([]);setOpenAccount(null);}
   function handleRegistered(){api("GET","/auth/status").then(d=>setHasUsers(d.has_users));setShowRegister(false);}
 
   if(checking) return <ThemeCtx.Provider value={{dark,C,S}}><div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",color:C.muted}}>Loading...</div></ThemeCtx.Provider>;
   if(showRegister&&!session) return <ThemeCtx.Provider value={{dark,C,S}}><RegisterPage onBack={()=>setShowRegister(false)} onDone={handleRegistered}/></ThemeCtx.Provider>;
-  if(!session) return <ThemeCtx.Provider value={{dark,C,S}}><LoginPage onLogin={handleLogin} hasUsers={hasUsers} onRegister={()=>setShowRegister(true)} timedOut={timedOut}/></ThemeCtx.Provider>;
+  if(!session) return <ThemeCtx.Provider value={{dark,C,S}}><LoginPage onLogin={handleLogin} hasUsers={hasUsers} onRegister={()=>setShowRegister(true)}/></ThemeCtx.Provider>;
 
   const isReadOnly=session.role==="readonly";
   const navItems=[
