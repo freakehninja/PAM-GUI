@@ -64,16 +64,30 @@ def add_log(entry_type, account_name, message, code, user=None, account_id=None)
     logger.log(f"[{code}] {message}", level="ERROR" if entry_type == "error" else "INFO")
     return entry
 
+SESSION_INACTIVITY_MINUTES = 10
+
 def require_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         token = request.headers.get("X-Session-Token")
         if not token or token not in sessions:
             return jsonify({"error": "Unauthorized"}), 401
-        s = sessions[token]
-        if datetime.fromisoformat(s["expires"]) < datetime.utcnow():
+        s   = sessions[token]
+        now = datetime.utcnow()
+        # Check hard expiry (kept as safety net)
+        if datetime.fromisoformat(s["expires"]) < now:
             del sessions[token]
-            return jsonify({"error": "Session expired"}), 401
+            return jsonify({"error": "Session expired", "reason": "expired"}), 401
+        # Check inactivity timeout
+        last = s.get("last_activity")
+        if last:
+            idle = now - datetime.fromisoformat(last)
+            if idle > timedelta(minutes=SESSION_INACTIVITY_MINUTES):
+                del sessions[token]
+                add_log("info", s["username"], f"Session timed out after {SESSION_INACTIVITY_MINUTES} min inactivity: {s['username']}", "SESSION_TIMEOUT")
+                return jsonify({"error": "Session timed out due to inactivity. Please log in again.", "reason": "timeout"}), 401
+        # Refresh last activity on every valid request
+        s["last_activity"] = now.isoformat()
         request.current_user = s["username"]
         request.current_role = s["role"]
         return f(*args, **kwargs)
@@ -85,9 +99,24 @@ def require_admin(f):
         token = request.headers.get("X-Session-Token")
         if not token or token not in sessions:
             return jsonify({"error": "Unauthorized"}), 401
-        s = sessions[token]
+        s   = sessions[token]
+        now = datetime.utcnow()
+        # Check hard expiry
+        if datetime.fromisoformat(s["expires"]) < now:
+            del sessions[token]
+            return jsonify({"error": "Session expired", "reason": "expired"}), 401
+        # Check inactivity timeout
+        last = s.get("last_activity")
+        if last:
+            idle = now - datetime.fromisoformat(last)
+            if idle > timedelta(minutes=SESSION_INACTIVITY_MINUTES):
+                del sessions[token]
+                add_log("info", s["username"], f"Session timed out after {SESSION_INACTIVITY_MINUTES} min inactivity: {s['username']}", "SESSION_TIMEOUT")
+                return jsonify({"error": "Session timed out due to inactivity. Please log in again.", "reason": "timeout"}), 401
         if s.get("role") != "admin":
             return jsonify({"error": "Admin access required"}), 403
+        # Refresh last activity
+        s["last_activity"] = now.isoformat()
         request.current_user = s["username"]
         request.current_role = s["role"]
         return f(*args, **kwargs)
@@ -208,8 +237,9 @@ def delete_user(username):
 @app.route("/api/auth/login", methods=["POST"])
 def login():
     body = request.json or {}
-    username = body.get("username","")
-    password = body.get("password","")
+    username  = body.get("username","")
+    password  = body.get("password","")
+    totp_code = body.get("totp_code","")
     if is_locked(username):
         lo = lockouts.get(username,{})
         return jsonify({"error": "Account locked after 3 failed attempts.", "locked": True, "locked_until": lo.get("locked_until")}), 423
@@ -220,11 +250,23 @@ def login():
         remaining = max(0,3-fails)
         add_log("error", username, f"Failed login: {username} ({fails}/3)", "LOGIN_FAIL")
         return jsonify({"error": f"Invalid credentials. {remaining} attempt(s) remaining before lockout."}), 401
+    # MFA check — verify TOTP after password is confirmed correct
+    if not totp_util.verify_totp(totp_code, user["totp_secret"]):
+        record_fail(username)
+        fails = lockouts.get(username,{}).get("fails",0)
+        remaining = max(0,3-fails)
+        add_log("error", username, f"Failed login (invalid MFA): {username} ({fails}/3)", "LOGIN_FAIL_MFA")
+        return jsonify({"error": f"Invalid authenticator code. {remaining} attempt(s) remaining before lockout."}), 401
     clear_fails(username)
     expired = password_expired(user)
     token = py_secrets.token_hex(32)
-    sessions[token] = {"username": username, "role": user["role"],
-                       "expires": (datetime.utcnow() + timedelta(hours=8)).isoformat()}
+    now = datetime.utcnow()
+    sessions[token] = {
+        "username":      username,
+        "role":          user["role"],
+        "expires":       (now + timedelta(minutes=10)).isoformat(),
+        "last_activity": now.isoformat(),
+    }
     add_log("info", username, f"Vault login: {username}", "LOGIN_OK")
     return jsonify({"token": token, "username": username, "role": user["role"], "password_expired": expired})
 
